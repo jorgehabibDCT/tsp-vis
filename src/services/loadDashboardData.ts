@@ -32,6 +32,8 @@ function delay(ms: number): Promise<void> {
 /**
  * Loads TSP comparison dashboard data: mock when no API base URL is set,
  * otherwise GET `${VITE_API_URL}${TSP_COMPARISON_DASHBOARD_PATH}`.
+ *
+ * When `VITE_API_URL` is non-empty, the mock module is not used (only bundled for the fallback path).
  */
 export async function loadDashboardData(): Promise<LoadDashboardDataResult> {
   const base = getApiBaseUrl().trim()

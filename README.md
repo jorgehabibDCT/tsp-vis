@@ -1,60 +1,59 @@
 # TSP Comparison Dashboard
 
-Vite + React frontend (deployable to Vercel) and a small Express API (for Render) that serves the same TSP comparison JSON the UI expects.
+Frontend at **repo root** (Vite/React → Vercel). API in **`server/`** (Express → Render). Mock-backed dashboard JSON only (no Influx yet).
 
-## Frontend
+## Local
 
-```bash
-npm install
-npm run dev
-```
+| | |
+|--|--|
+| **Frontend** | `npm install` → `npm run dev` |
+| **API** | `cd server && npm install` → `npm run dev` (default port **4000**) |
 
-- Default: loads **mock data** in the browser (no API). Set **`VITE_API_URL`** only when pointing at the API.
+Without `VITE_API_URL`, the UI uses **in-browser mock** data. To call the API: copy `.env.example` to `.env.development.local` and set `VITE_API_URL=http://localhost:4000`.
 
-## API (local)
+**Checks:** `GET /health` and `GET /api/dashboard/tsp-comparison` on the API host.
 
-```bash
-cd server && npm install && npm run dev
-```
+---
 
-- Listens on **`http://localhost:4000`** (override with **`PORT`**).
-- **`GET /api/dashboard/tsp-comparison`** — dashboard JSON (mock payload, contract-stable).
-- **`GET /health`** — liveness.
+## Deploy: Vercel (frontend)
 
-### Point the SPA at the API
+| Setting | Value |
+|--------|--------|
+| **Root Directory** | `.` (repository root) |
+| **Build Command** | `npm run build` |
+| **Output** | `dist` |
+| **Install** | `npm install` (default) |
 
-Terminal 1: `npm run dev:api` (or `cd server && npm run dev`)
+`vercel.json` pins Vite output and SPA fallback to `index.html`.
 
-Terminal 2:
+**Required env (production):** **`VITE_API_URL`** — HTTPS **origin** of the Render API only (no path, no trailing slash), e.g. `https://your-service.onrender.com`.  
+Vite inlines `VITE_*` at **build time**; change the var → **redeploy** the frontend.
 
-```bash
-VITE_API_URL=http://localhost:4000 npm run dev
-```
+---
 
-Or create `.env.development.local` in the repo root:
+## Deploy: Render (API)
 
-```env
-VITE_API_URL=http://localhost:4000
-```
+| Setting | Value |
+|--------|--------|
+| **Root Directory** | `server` |
+| **Build Command** | `npm install && npm run build` |
+| **Start Command** | `npm start` |
 
-Then run `npm run dev`. The UI should load from the backend (no “Mock data” badge when the response is `remote`).
+**Env:** **`PORT`** is set by Render. Optional **`CORS_ORIGINS`**: comma-separated extra allowed browser origins (e.g. Vercel preview URLs). Defaults include `https://tsp-vis.vercel.app` and local Vite — see `server/src/cors.ts`.
 
-**CORS:** The API allows local Vite (`5173` / `127.0.0.1`), `vite preview` (`4173`), and production **`https://tsp-vis.vercel.app`**. To allow more origins (e.g. Vercel preview URLs), set on Render:
+---
 
-```env
-CORS_ORIGINS=https://tsp-vis-git-branch-user.vercel.app,https://another-domain.com
-```
+## Env reference
 
-Comma-separated, no spaces required (spaces are trimmed).
+| Where | Variable | Purpose |
+|-------|----------|---------|
+| **Vercel** | `VITE_API_URL` | Render API base URL; **omit** to keep using client mock (not recommended for production). |
+| **Render** | `CORS_ORIGINS` | Optional extra origins beyond defaults. |
 
-## Builds
+---
 
-- Frontend: `npm run build`
-- API: `npm run build:api` then `cd server && npm start`
+## Gotchas
 
-## Deploying the API on Render (later)
-
-- **Root directory:** `server`
-- **Build command:** `npm install && npm run build`
-- **Start command:** `npm start`
-- Render sets **`PORT`**; the server reads `process.env.PORT`.
+- **HTTPS:** Production site must call an **https://** API URL (mixed content blocked if the page is HTTPS and the API is HTTP).
+- **`VITE_API_URL` shape:** scheme + host only; path `/api/...` is fixed in the app (`src/api/endpoints.ts`).
+- **CORS:** If the Vercel URL changes or you use preview deployments, add those origins via **`CORS_ORIGINS`** on Render.

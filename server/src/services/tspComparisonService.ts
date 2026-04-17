@@ -1,16 +1,15 @@
 import { getTspProviderSlugMap } from '../config/tspProviderMap.js'
 import { isInfluxConfigured } from '../lib/influxEnv.js'
 import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
+import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { fetchDistinctEntityCountsByProvider } from './influxTspMetrics.js'
 
 type DashboardPayload = typeof mockTspComparisonResponse
 
 /**
- * Returns the TSP comparison dashboard payload.
- * When Influx env is set, **Number of Entities** is aggregated from distinct `vid` per `provider` tag;
- * other metrics remain mock. On any Influx failure, returns the full mock payload (unchanged).
+ * Assembles the dashboard (Influx entity metric when configured, else full mock).
  */
-export async function getTspComparisonDashboard(): Promise<DashboardPayload> {
+async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   if (!isInfluxConfigured()) {
     return mockTspComparisonResponse
   }
@@ -53,4 +52,13 @@ export async function getTspComparisonDashboard(): Promise<DashboardPayload> {
     )
     return mockTspComparisonResponse
   }
+}
+
+/**
+ * Returns the TSP comparison dashboard payload (cached in memory with TTL).
+ * When Influx env is set, **Number of Entities** is aggregated from distinct `vid` per `provider` tag;
+ * other metrics remain mock. On any Influx failure, returns the full mock payload (unchanged).
+ */
+export async function getTspComparisonDashboard(): Promise<DashboardPayload> {
+  return withDashboardResponseCache(buildTspComparisonDashboard)
 }

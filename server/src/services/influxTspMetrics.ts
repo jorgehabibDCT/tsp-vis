@@ -16,8 +16,11 @@ import {
  * Grouping before dropping `_value` causes `schema collision: cannot group string and float types together`.
  * We keep only `_time`, `provider`, and `vid` so the pipeline never merges heterogeneous `_value` columns.
  *
- * Flux: one row per (provider, vid), then `count(column: "vid")` per provider. Plain `count()` defaults to
- * `column: "_value"`, which no longer exists after `keep` — that caused `no column "_value" exists`.
+ * After `keep`, there is no `_value`. Both `first()` and `count()` default to `column: "_value"` in Flux
+ * (see universe.first / universe.count), so we must use explicit columns:
+ * - `first(column: "_time")` — one row per (provider, vid)
+ * - `count(column: "vid")` — distinct vids per provider
+ *
  * Narrow `INFLUX_ENTITY_RANGE` (default `-3d`) reduces scan cost vs multi-month windows.
  */
 export function buildDistinctVidCountByProviderFlux(): string {
@@ -34,10 +37,18 @@ from(bucket: "${bucket}")
   |> filter(fn: (r) => r.vid != "")
   |> keep(columns: ["_time", "provider", "vid"])
   |> group(columns: ["provider", "vid"])
-  |> first()
+  |> first(column: "_time")
   |> group(columns: ["provider"])
   |> count(column: "vid")
 `.trim()
+}
+
+/** Single-line summary for log lines (proves critical stages are present). */
+export function describeEntityFluxGuards(flux: string): string {
+  const hasFirst = flux.includes('first(column: "_time")')
+  const hasCount = flux.includes('count(column: "vid")')
+  const hasKeep = flux.includes('keep(columns:')
+  return `guards keep=${hasKeep} first_time=${hasFirst} count_vid=${hasCount}`
 }
 
 function escapeFluxString(s: string): string {
@@ -64,9 +75,14 @@ export async function fetchDistinctEntityCountsByProvider(): Promise<
     `[influx/entities] start bucket=${bucket} range=${range} measurement=${measurement} envTimeoutMs=${timeoutMs}`,
   )
 
+  const flux = buildDistinctVidCountByProviderFlux()
+  console.log(`[influx/entities] ${describeEntityFluxGuards(flux)}`)
+  console.log(
+    '[influx/entities] flux query (exact, entity metric only):\n---\n' + flux + '\n---',
+  )
+
   const t0 = Date.now()
   try {
-    const flux = buildDistinctVidCountByProviderFlux()
     const queryApi = getQueryApi()
     const rows = await queryApi.collectRows(flux)
     const elapsed = Date.now() - t0
@@ -97,8 +113,13 @@ export async function fetchDistinctEntityCountsByProvider(): Promise<
     const elapsed = Date.now() - t0
     const kind = isTimeoutError(e) ? 'timeout' : 'error'
     console.warn(
-      `[influx/entities] ${kind} elapsedMs=${elapsed} range=${range} measurement=${measurement}`,
+      `[influx/entities] ${kind} elapsedMs=${elapsed} range=${range} measurement=${measurement} ${describeEntityFluxGuards(flux)}`,
       e,
+    )
+    console.warn(
+      '[influx/entities] flux query that failed (same string as above):\n---\n' +
+        flux +
+        '\n---',
     )
     throw e
   }

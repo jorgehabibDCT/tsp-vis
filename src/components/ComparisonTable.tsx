@@ -20,7 +20,7 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
       aria-label="TSP comparison table"
     >
       <table className="comparison-table">
-        <thead>
+        <thead className="comparison-table__thead">
           <tr>
             <th scope="col" className="comparison-table__corner">
               Metric

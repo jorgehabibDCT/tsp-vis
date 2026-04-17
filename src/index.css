@@ -1,16 +1,26 @@
 :root {
   color-scheme: light;
-  --color-bg: #f4f5f7;
+  --color-bg: #eef1f5;
   --color-surface: #ffffff;
-  --color-surface-elevated: #f8f9fb;
-  --color-border: #d8dde5;
-  --color-border-subtle: #e8ebf0;
-  --color-text: #1a1d24;
-  --color-text-muted: #5c6370;
-  --color-text-faint: #9aa3b2;
-  --color-row-hover: #f0f2f6;
-  --color-control-hover: #e9ecf2;
+  --color-surface-elevated: #f6f7fa;
+  --color-border: #d1d6e0;
+  --color-border-subtle: #e4e8ef;
+  --color-text: #141820;
+  --color-text-muted: #5a6270;
+  --color-text-faint: #8b93a2;
+  --color-row-hover: #eef0f5;
+  --color-control-hover: #e4e8f0;
   --color-focus: #2563eb;
+  --color-accent: #1e5bc4;
+  --color-thead: #f1f3f7;
+  --color-thead-border: #c9d0dc;
+  --color-group-row: #e9edf4;
+  --color-group-accent: #3d6fd8;
+  --color-detail-bg: #fafbfd;
+  --color-label-column: #fcfcfd;
+  --shadow-table: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-sticky-y: 0 2px 4px rgba(15, 23, 42, 0.06);
+  --shadow-sticky-x: 2px 0 4px rgba(15, 23, 42, 0.05);
 
   font-family:
     system-ui,

@@ -1,7 +1,7 @@
 /**
  * Backend-owned mock for `GET /api/dashboard/tsp-comparison`.
- * Shape matches the frontend `TspComparisonResponse` contract (same semantics as the SPA mock).
- * Replace `getTspComparisonDashboard()` implementation later with an Influx-backed adapter.
+ * Shape matches the frontend `TspComparisonResponse` contract.
+ * `tspComparisonService` merges Influx-backed entity counts into metric `metric-entities` when configured; this file remains the fallback and source for other metrics.
  */
 
 const tspIds = {

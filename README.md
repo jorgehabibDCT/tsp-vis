@@ -1,6 +1,6 @@
 # TSP Comparison Dashboard
 
-Frontend at **repo root** (Vite/React → Vercel). API in **`server/`** (Express → Render). Mock-backed dashboard JSON only (no Influx yet).
+Frontend at **repo root** (Vite/React → Vercel). API in **`server/`** (Express → Render). Dashboard JSON is **mock** unless Influx is configured on the API (then **Number of Entities** is live; other metrics stay mock).
 
 ## Local
 
@@ -41,6 +41,22 @@ Vite inlines `VITE_*` at **build time**; change the var → **redeploy** the fro
 
 **Env:** **`PORT`** is set by Render. Optional **`CORS_ORIGINS`**: comma-separated extra allowed browser origins (e.g. Vercel preview URLs). Defaults include `https://tsp-vis.vercel.app` and local Vite — see `server/src/cors.ts`.
 
+### Influx (optional, API only)
+
+When **`INFLUX_HOST`**, **`INFLUX_TOKEN`**, **`INFLUX_ORG`**, and **`INFLUX_BUCKET`** are all set, the **Number of Entities (Vehicles or Assets)** metric is filled from Influx; everything else in the response stays mock. If Influx is unset or the query fails, the API returns the **full mock** payload (same shape as before).
+
+| Variable | Purpose |
+|----------|---------|
+| `INFLUX_HOST` | Influx API base URL, or hostname (prefix `https://` if no scheme). |
+| `INFLUX_TOKEN` | API token. |
+| `INFLUX_ORG` | Organization name. |
+| `INFLUX_BUCKET` | Bucket name. |
+| `INFLUX_ENTITY_RANGE` | Optional Flux range (default `-90d`). |
+| `INFLUX_PROVIDERS_MEASUREMENT` | Optional measurement name (default `providers`). |
+| `TSP_PROVIDER_SLUGS` | Optional JSON map from dashboard TSP id → Influx `provider` tag value (see `server/src/config/tspProviderMap.ts`). |
+
+Copy **`server/.env.example`** for local API tests.
+
 ---
 
 ## Env reference
@@ -49,6 +65,7 @@ Vite inlines `VITE_*` at **build time**; change the var → **redeploy** the fro
 |-------|----------|---------|
 | **Vercel** | `VITE_API_URL` | Render API base URL; **omit** to keep using client mock (not recommended for production). |
 | **Render** | `CORS_ORIGINS` | Optional extra origins beyond defaults. |
+| **Render** | `INFLUX_*`, `TSP_PROVIDER_SLUGS` | Optional; see Influx section above. |
 
 ---
 

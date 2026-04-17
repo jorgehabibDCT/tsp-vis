@@ -12,6 +12,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
     "cors": "^2.8.5",
     "express": "^4.21.2"
   },

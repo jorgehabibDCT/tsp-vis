@@ -18,14 +18,19 @@ export function ComparisonDashboard({
   return (
     <div className="comparison-dashboard">
       <header className="comparison-dashboard__header">
-        <div className="comparison-dashboard__header-row">
-          <div className="comparison-dashboard__titles">
-            <h1 className="comparison-dashboard__title">TSP Comparison</h1>
-            <p className="comparison-dashboard__subtitle">Prototype</p>
+        <div className="comparison-dashboard__header-panel">
+          <div className="comparison-dashboard__header-row">
+            <div className="comparison-dashboard__titles">
+              <p className="comparison-dashboard__eyebrow">Dashboard</p>
+              <h1 className="comparison-dashboard__title">TSP comparison</h1>
+              <p className="comparison-dashboard__subtitle">
+                Side-by-side metrics across providers
+              </p>
+            </div>
+            {showMockBadge && (
+              <span className="comparison-dashboard__badge">Mock data</span>
+            )}
           </div>
-          {showMockBadge && (
-            <span className="comparison-dashboard__badge">Mock data</span>
-          )}
         </div>
       </header>
       <main className="comparison-dashboard__main">

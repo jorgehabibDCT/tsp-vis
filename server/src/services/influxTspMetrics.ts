@@ -11,7 +11,11 @@ import {
  * - Tags: `provider` (TSP/source slug), `vid` (vehicle / entity id).
  * - Entity count per TSP = distinct `vid` values per `provider` over the time range.
  *
- * Flux: collapse to one row per (provider, vid), then count rows per provider.
+ * Important: this measurement has many `_field` values with mixed `_value` types (float vs string).
+ * Grouping before dropping `_value` causes `schema collision: cannot group string and float types together`.
+ * We keep only `_time`, `provider`, and `vid` so the pipeline never merges heterogeneous `_value` columns.
+ *
+ * Flux: one row per (provider, vid), then count rows per provider. `_value` is not used until the final `count()`.
  */
 export function buildDistinctVidCountByProviderFlux(): string {
   const bucket = escapeFluxString(getInfluxBucket())
@@ -25,6 +29,7 @@ from(bucket: "${bucket}")
   |> filter(fn: (r) => exists r.provider)
   |> filter(fn: (r) => exists r.vid)
   |> filter(fn: (r) => r.vid != "")
+  |> keep(columns: ["_time", "provider", "vid"])
   |> group(columns: ["provider", "vid"])
   |> first()
   |> group(columns: ["provider"])

@@ -1,26 +1,22 @@
 import cors from 'cors'
 import express from 'express'
+import { getAllowedOriginSet } from './cors.js'
 import { dashboardRouter } from './routes/dashboard.js'
 
 const PORT = Number(process.env.PORT) || 4000
 
-const allowedOrigins = new Set([
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:4173',
-  'http://127.0.0.1:4173',
-])
+const allowedOrigins = getAllowedOriginSet()
 
 const app = express()
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
-        callback(null, true)
-        return
+      const allowed = !origin || allowedOrigins.has(origin)
+      if (origin && !allowed) {
+        console.warn(`[cors] blocked origin: ${origin}`)
       }
-      callback(null, false)
+      callback(null, allowed)
     },
   }),
 )
@@ -33,4 +29,7 @@ app.get('/health', (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`TSP comparison API listening on http://localhost:${PORT}`)
+  console.log(
+    `[cors] allowed origins (${allowedOrigins.size}): ${[...allowedOrigins].join(', ')}`,
+  )
 })

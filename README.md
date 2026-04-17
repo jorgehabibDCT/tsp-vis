@@ -39,7 +39,13 @@ VITE_API_URL=http://localhost:4000
 
 Then run `npm run dev`. The UI should load from the backend (no “Mock data” badge when the response is `remote`).
 
-CORS allows the Vite dev server (`localhost:5173`, `127.0.0.1:5173`) and `vite preview` (`4173`).
+**CORS:** The API allows local Vite (`5173` / `127.0.0.1`), `vite preview` (`4173`), and production **`https://tsp-vis.vercel.app`**. To allow more origins (e.g. Vercel preview URLs), set on Render:
+
+```env
+CORS_ORIGINS=https://tsp-vis-git-branch-user.vercel.app,https://another-domain.com
+```
+
+Comma-separated, no spaces required (spaces are trimmed).
 
 ## Builds
 

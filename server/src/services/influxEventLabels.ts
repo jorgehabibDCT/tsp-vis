@@ -10,7 +10,7 @@ import { INFLUX_EVENT_LABEL_ROW } from '../config/eventLabelGroups.js'
 import {
   logEventLabelInfluxPreMapSample,
   logInfluxRawRowSample,
-  parseFluxAggregateValue,
+  parseFluxCountedColumn,
   readFluxRowField,
 } from './dashboardInfluxDiagnostics.js'
 
@@ -27,6 +27,7 @@ import {
  * **Aggregation:** add **`one: 1`** (not in the group key), `keep` it with `provider` + `lbl`,
  * then `group(columns: ["provider", "lbl"])` and **`count(column: "one")`** — cannot use
  * `_time` (time type) or `lbl` / `provider` (group-key columns) as the aggregate column.
+ * collectRows typically returns the count on **`one`**, not `_value`.
  *
  * **Guards:** `string()` on `_value` avoids mixed-type schema issues; empty `lbl` dropped.
  */
@@ -117,7 +118,7 @@ export async function fetchEventLabelCountsByProvider(): Promise<
       const provider = pv != null ? String(pv) : ''
       const lv = readFluxRowField(rec, 'lbl')
       const labelSignal = lv != null ? String(lv) : ''
-      const n = parseFluxAggregateValue(rec)
+      const n = parseFluxCountedColumn(rec, 'one')
       if (!provider || !labelSignal || Number.isNaN(n)) {
         continue
       }

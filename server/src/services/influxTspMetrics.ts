@@ -8,7 +8,7 @@ import {
 import {
   logEntityInfluxGroupedSample,
   logInfluxRawRowSample,
-  parseFluxAggregateValue,
+  parseFluxCountedColumn,
   readFluxRowField,
 } from './dashboardInfluxDiagnostics.js'
 
@@ -25,7 +25,7 @@ import {
  * After `keep`, there is no `_value`. Both `first()` and `count()` default to `column: "_value"` in Flux
  * (see universe.first / universe.count), so we must use explicit columns:
  * - `first(column: "_time")` — one row per (provider, vid)
- * - `count(column: "vid")` — distinct vids per provider
+ * - `count(column: "vid")` — distinct vids per provider (collectRows often returns count under **`vid`**, not `_value`)
  *
  * Narrow `INFLUX_ENTITY_RANGE` (default `-3d`) reduces scan cost vs multi-month windows.
  */
@@ -102,7 +102,7 @@ export async function fetchDistinctEntityCountsByProvider(): Promise<
       const rec = row as Record<string, unknown>
       const pv = readFluxRowField(rec, 'provider')
       const provider = pv != null ? String(pv) : ''
-      const n = parseFluxAggregateValue(rec)
+      const n = parseFluxCountedColumn(rec, 'vid')
       if (!provider || Number.isNaN(n)) {
         continue
       }

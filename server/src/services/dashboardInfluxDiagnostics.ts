@@ -50,9 +50,27 @@ export function readFluxRowField(
   return undefined
 }
 
-/** Typical aggregate column after `count()` / `sum()`. */
-export function parseFluxAggregateValue(rec: Record<string, unknown>): number {
-  return toFiniteNumber(readFluxRowField(rec, '_value'))
+/**
+ * Numeric result after Flux `count(column: "<fluxCountedColumn>")`.
+ * The Node client often exposes the count on the **counted column** (`vid`, `one`, …), not `_value`.
+ * Tries `fluxCountedColumn` first, then optional fallbacks (default `_value` for older / CSV shapes).
+ */
+export function parseFluxCountedColumn(
+  rec: Record<string, unknown>,
+  fluxCountedColumn: string,
+  fallbackColumns: string[] = ['_value'],
+): number {
+  const order = [
+    fluxCountedColumn,
+    ...fallbackColumns.filter((c) => c !== fluxCountedColumn),
+  ]
+  for (const col of order) {
+    const n = toFiniteNumber(readFluxRowField(rec, col))
+    if (Number.isFinite(n)) {
+      return n
+    }
+  }
+  return NaN
 }
 
 /** Log grouped entity counts from Influx before TSP merge. */

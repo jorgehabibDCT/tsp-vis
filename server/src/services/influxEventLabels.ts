@@ -21,9 +21,9 @@ import {
  * **Provider:** `provider` tag (same slugs as `TSP_PROVIDER_SLUGS` / entity metric).
  * **Time range:** `INFLUX_ENTITY_RANGE` (default `-3d`), same as entity query.
  *
- * **Aggregation:** after `group(columns: ["provider", "lbl"])`, **`count(column: "lbl")`**
- * (not `_time` — Flux rejects counting time-typed columns). Result is one row per bucket with
- * `_value` = number of points for that provider + label signal.
+ * **Aggregation:** add **`one: 1`** (not in the group key), `keep` it with `provider` + `lbl`,
+ * then `group(columns: ["provider", "lbl"])` and **`count(column: "one")`** — cannot use
+ * `_time` (time type) or `lbl` / `provider` (group-key columns) as the aggregate column.
  *
  * **Guards:** `string()` on `_value` avoids mixed-type schema issues; empty `lbl` dropped.
  */
@@ -47,17 +47,17 @@ from(bucket: "${bucket}")
   |> filter(fn: (r) => ${fieldOrs})
   |> filter(fn: (r) => exists r.provider)
   |> filter(fn: (r) => r.provider != "")
-  |> map(fn: (r) => ({ r with lbl: string(v: r._value) }))
+  |> map(fn: (r) => ({ r with lbl: string(v: r._value), one: 1 }))
   |> filter(fn: (r) => r.lbl != "")
-  |> keep(columns: ["_time", "provider", "lbl"])
+  |> keep(columns: ["_time", "provider", "lbl", "one"])
   |> group(columns: ["provider", "lbl"])
-  |> count(column: "lbl")
+  |> count(column: "one")
 `.trim()
 }
 
 export function describeEventLabelFluxGuards(flux: string): string {
   const tag = INFLUX_EVENT_LABEL_ROW.labelTagValue
-  return `guards label_tag=${flux.includes(tag)} count_lbl=${flux.includes('count(column: "lbl")')}`
+  return `guards label_tag=${flux.includes(tag)} count_one=${flux.includes('count(column: "one")')}`
 }
 
 function escapeFluxString(s: string): string {

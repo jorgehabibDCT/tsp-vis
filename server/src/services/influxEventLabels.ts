@@ -6,15 +6,18 @@ import {
   getInfluxQueryTimeoutMs,
   getProvidersMeasurement,
 } from '../lib/influxEnv.js'
-import { INFLUX_EVENT_LABEL_ROW } from '../config/eventLabelGroups.js'
+import {
+  INFLUX_EVENT_LABEL_ROW,
+  normalizeInfluxLabelSignal,
+} from '../config/eventLabelGroups.js'
 
 /**
  * Event / alarm label roll-up for the expandable metric.
  *
  * **Measurement:** `providers` (same as entity counts; override `INFLUX_PROVIDERS_MEASUREMENT`).
  * **Rows:** `label == "label_count"` and `_field` in `getInfluxEventLabelFields()` (default
- *   `label_type`, `label_dscrptn_en`, `label_dscrptn_es`) — `_value` is the machine code or
- *   localized description written with that point.
+ *   **`label_type` only**) — `_value` is the machine label code. Override env to include
+ *   description fields when intentional (may overlap semantically with `label_type`).
  * **Provider:** `provider` tag (same slugs as `TSP_PROVIDER_SLUGS` / entity metric).
  * **Time range:** `INFLUX_ENTITY_RANGE` (default `-3d`), same as entity query.
  *
@@ -58,6 +61,42 @@ export function describeEventLabelFluxGuards(flux: string): string {
 
 function escapeFluxString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+/** Log a small slice of highest-count (provider, label) buckets for rollout validation. */
+function logEventLabelCountDiagnostics(
+  counts: Record<string, Record<string, number>>,
+  sampleLimit: number,
+): void {
+  type Row = { provider: string; raw: string; norm: string; count: number }
+  const rows: Row[] = []
+  for (const [provider, byLabel] of Object.entries(counts)) {
+    for (const [raw, n] of Object.entries(byLabel)) {
+      if (Number.isFinite(n) && n > 0) {
+        rows.push({
+          provider,
+          raw,
+          norm: normalizeInfluxLabelSignal(raw),
+          count: n,
+        })
+      }
+    }
+  }
+  rows.sort((a, b) => b.count - a.count)
+  const slice = rows.slice(0, sampleLimit)
+  if (slice.length === 0) {
+    console.log('[influx/event-labels] diag sample: (no rows)')
+    return
+  }
+  console.log(
+    `[influx/event-labels] diag sample topN=${slice.length} (provider | norm | count | raw):`,
+  )
+  for (const r of slice) {
+    const rawEsc = r.raw.length > 96 ? `${r.raw.slice(0, 96)}…` : r.raw
+    console.log(
+      `[influx/event-labels] diag row provider=${r.provider} norm=${r.norm} count=${r.count} raw=${rawEsc}`,
+    )
+  }
 }
 
 function isTimeoutError(e: unknown): boolean {
@@ -117,6 +156,8 @@ export async function fetchEventLabelCountsByProvider(): Promise<
       }
       out[provider][labelSignal] = (out[provider][labelSignal] ?? 0) + n
     }
+
+    logEventLabelCountDiagnostics(out, 15)
 
     return out
   } catch (e) {

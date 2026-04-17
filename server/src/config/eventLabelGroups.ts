@@ -5,8 +5,8 @@
  * Influx side (see `influxEventLabels.ts`):
  * - Measurement: same as entities — `providers` (override: `INFLUX_PROVIDERS_MEASUREMENT`).
  * - Rows: `label == "label_count"` and `_field` in `INFLUX_EVENT_LABEL_FIELDS` (default:
- *   `label_type`, `label_dscrptn_en`, `label_dscrptn_es`). `_value` is the type code or
- *   localized description string.
+ *   `label_type` only). `_value` is usually the machine label code; add description fields via env
+ *   only if you accept possible semantic overlap with `label_type`.
  * - Provider dimension: **`provider` tag** (same slugs as `TSP_PROVIDER_SLUGS`).
  * - Time range: same Flux window as entity metric (`INFLUX_ENTITY_RANGE`, default `-3d`).
  */
@@ -14,12 +14,8 @@
 export const INFLUX_EVENT_LABEL_ROW = {
   /** Tag on `providers` measurement selecting label metadata rows */
   labelTagValue: 'label_count',
-  /** Default `_field` names whose `_value` we treat as the alarm/event label signal */
-  defaultValueFields: [
-    'label_type',
-    'label_dscrptn_en',
-    'label_dscrptn_es',
-  ] as const,
+  /** Canonical default `_field` (matches `getInfluxEventLabelFields()` when env unset). */
+  defaultValueFields: ['label_type'] as const,
 } as const
 
 export type EventGroupId =

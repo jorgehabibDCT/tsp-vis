@@ -77,12 +77,15 @@ export function getProvidersMeasurement(): string {
 /**
  * Comma-separated `_field` names on `providers` (with `label == label_count`) whose `_value`
  * is treated as the event/alarm label signal for the expandable dashboard metric.
- * Default: `label_type,label_dscrptn_en,label_dscrptn_es`.
+ *
+ * **Default:** `label_type` only — one canonical field per stored point, avoiding the same
+ * logical label being counted across `label_type` + localized description fields.
+ * Set `INFLUX_EVENT_LABEL_FIELDS` to add fields intentionally (e.g. `label_type,label_dscrptn_es`).
  */
 export function getInfluxEventLabelFields(): string[] {
   const raw = process.env.INFLUX_EVENT_LABEL_FIELDS?.trim()
   if (!raw) {
-    return ['label_type', 'label_dscrptn_en', 'label_dscrptn_es']
+    return ['label_type']
   }
   return raw
     .split(',')

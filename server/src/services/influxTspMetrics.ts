@@ -16,8 +16,9 @@ import {
  * Grouping before dropping `_value` causes `schema collision: cannot group string and float types together`.
  * We keep only `_time`, `provider`, and `vid` so the pipeline never merges heterogeneous `_value` columns.
  *
- * Flux: one row per (provider, vid), then count rows per provider. `_value` is not used until the final `count()`.
- * Narrow `INFLUX_ENTITY_RANGE` (default `-7d`) reduces scan cost vs multi-month windows.
+ * Flux: one row per (provider, vid), then `count(column: "vid")` per provider. Plain `count()` defaults to
+ * `column: "_value"`, which no longer exists after `keep` — that caused `no column "_value" exists`.
+ * Narrow `INFLUX_ENTITY_RANGE` (default `-3d`) reduces scan cost vs multi-month windows.
  */
 export function buildDistinctVidCountByProviderFlux(): string {
   const bucket = escapeFluxString(getInfluxBucket())
@@ -35,7 +36,7 @@ from(bucket: "${bucket}")
   |> group(columns: ["provider", "vid"])
   |> first()
   |> group(columns: ["provider"])
-  |> count()
+  |> count(column: "vid")
 `.trim()
 }
 
@@ -60,7 +61,7 @@ export async function fetchDistinctEntityCountsByProvider(): Promise<
   const bucket = getInfluxBucket()
 
   console.log(
-    `[influx/entities] start bucket=${bucket} range=${range} measurement=${measurement} timeoutMs=${timeoutMs}`,
+    `[influx/entities] start bucket=${bucket} range=${range} measurement=${measurement} envTimeoutMs=${timeoutMs}`,
   )
 
   const t0 = Date.now()

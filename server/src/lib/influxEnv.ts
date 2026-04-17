@@ -50,10 +50,10 @@ export function getInfluxBucket(): string {
 
 /**
  * Flux `range(start: …)` for the entity-count query.
- * Default `-7d` keeps scans small; widen with `INFLUX_ENTITY_RANGE` if needed (e.g. `-30d`).
+ * Default `-3d` minimizes scan cost; widen with `INFLUX_ENTITY_RANGE` if needed (e.g. `-7d`, `-30d`).
  */
 export function getInfluxEntityRange(): string {
-  return process.env.INFLUX_ENTITY_RANGE?.trim() || '-7d'
+  return process.env.INFLUX_ENTITY_RANGE?.trim() || '-3d'
 }
 
 /**

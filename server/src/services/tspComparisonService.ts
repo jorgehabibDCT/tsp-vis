@@ -5,6 +5,10 @@ import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { fetchDistinctEntityCountsByProvider } from './influxTspMetrics.js'
 import { fetchEventLabelCountsByProvider } from './influxEventLabels.js'
 import { mergeEventLabelCountsIntoPayload } from './mergeEventLabelDashboard.js'
+import {
+  logEventLabelUnmappedTotals,
+  logTspSlugMapVsInfluxProviders,
+} from './dashboardInfluxDiagnostics.js'
 
 type DashboardPayload = typeof mockTspComparisonResponse
 
@@ -52,6 +56,11 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
 
   try {
     const byProvider = await fetchDistinctEntityCountsByProvider()
+    logTspSlugMapVsInfluxProviders(
+      'entities',
+      slugByTspId,
+      Object.keys(byProvider),
+    )
     mergeEntityCountsIntoPayload(payload, byProvider, slugByTspId)
   } catch (e) {
     console.warn(
@@ -62,7 +71,13 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
 
   try {
     const eventCounts = await fetchEventLabelCountsByProvider()
+    logTspSlugMapVsInfluxProviders(
+      'event-labels',
+      slugByTspId,
+      Object.keys(eventCounts),
+    )
     mergeEventLabelCountsIntoPayload(payload, eventCounts, slugByTspId)
+    logEventLabelUnmappedTotals(eventCounts, slugByTspId)
   } catch (e) {
     console.warn(
       '[tspComparison] Influx event label aggregation failed; leaving Event labels / Alarms mock',

@@ -6,10 +6,13 @@ import {
   getInfluxQueryTimeoutMs,
   getProvidersMeasurement,
 } from '../lib/influxEnv.js'
+import { INFLUX_EVENT_LABEL_ROW } from '../config/eventLabelGroups.js'
 import {
-  INFLUX_EVENT_LABEL_ROW,
-  normalizeInfluxLabelSignal,
-} from '../config/eventLabelGroups.js'
+  logEventLabelInfluxPreMapSample,
+  logInfluxRawRowSample,
+  parseFluxAggregateValue,
+  readFluxRowField,
+} from './dashboardInfluxDiagnostics.js'
 
 /**
  * Event / alarm label roll-up for the expandable metric.
@@ -64,42 +67,6 @@ function escapeFluxString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
-/** Log a small slice of highest-count (provider, label) buckets for rollout validation. */
-function logEventLabelCountDiagnostics(
-  counts: Record<string, Record<string, number>>,
-  sampleLimit: number,
-): void {
-  type Row = { provider: string; raw: string; norm: string; count: number }
-  const rows: Row[] = []
-  for (const [provider, byLabel] of Object.entries(counts)) {
-    for (const [raw, n] of Object.entries(byLabel)) {
-      if (Number.isFinite(n) && n > 0) {
-        rows.push({
-          provider,
-          raw,
-          norm: normalizeInfluxLabelSignal(raw),
-          count: n,
-        })
-      }
-    }
-  }
-  rows.sort((a, b) => b.count - a.count)
-  const slice = rows.slice(0, sampleLimit)
-  if (slice.length === 0) {
-    console.log('[influx/event-labels] diag sample: (no rows)')
-    return
-  }
-  console.log(
-    `[influx/event-labels] diag sample topN=${slice.length} (provider | norm | count | raw):`,
-  )
-  for (const r of slice) {
-    const rawEsc = r.raw.length > 96 ? `${r.raw.slice(0, 96)}…` : r.raw
-    console.log(
-      `[influx/event-labels] diag row provider=${r.provider} norm=${r.norm} count=${r.count} raw=${rawEsc}`,
-    )
-  }
-}
-
 function isTimeoutError(e: unknown): boolean {
   if (e && typeof e === 'object' && 'name' in e) {
     return (e as { name: string }).name === 'RequestTimedOutError'
@@ -136,19 +103,21 @@ export async function fetchEventLabelCountsByProvider(): Promise<
       `[influx/event-labels] ok elapsedMs=${elapsed} resultRows=${rows.length}`,
     )
 
+    logInfluxRawRowSample(
+      '[diag/event-labels]',
+      rows as Record<string, unknown>[],
+      3,
+    )
+
     const out: Record<string, Record<string, number>> = {}
 
     for (const row of rows) {
       const rec = row as Record<string, unknown>
-      const provider = rec.provider != null ? String(rec.provider) : ''
-      const labelSignal = rec.lbl != null ? String(rec.lbl) : ''
-      const value = rec._value
-      const n =
-        typeof value === 'number'
-          ? value
-          : typeof value === 'string'
-            ? Number(value)
-            : Number(value)
+      const pv = readFluxRowField(rec, 'provider')
+      const provider = pv != null ? String(pv) : ''
+      const lv = readFluxRowField(rec, 'lbl')
+      const labelSignal = lv != null ? String(lv) : ''
+      const n = parseFluxAggregateValue(rec)
       if (!provider || !labelSignal || Number.isNaN(n)) {
         continue
       }
@@ -158,7 +127,14 @@ export async function fetchEventLabelCountsByProvider(): Promise<
       out[provider][labelSignal] = (out[provider][labelSignal] ?? 0) + n
     }
 
-    logEventLabelCountDiagnostics(out, 15)
+    logEventLabelInfluxPreMapSample(out, 20)
+    if (rows.length > 0 && Object.keys(out).length === 0) {
+      logInfluxRawRowSample(
+        '[diag/event-labels] post-parse-empty',
+        rows as Record<string, unknown>[],
+        5,
+      )
+    }
 
     return out
   } catch (e) {

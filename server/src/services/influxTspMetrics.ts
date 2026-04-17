@@ -5,6 +5,12 @@ import {
   getInfluxQueryTimeoutMs,
   getProvidersMeasurement,
 } from '../lib/influxEnv.js'
+import {
+  logEntityInfluxGroupedSample,
+  logInfluxRawRowSample,
+  parseFluxAggregateValue,
+  readFluxRowField,
+} from './dashboardInfluxDiagnostics.js'
 
 /**
  * Assumptions (from repo CSV exploration):
@@ -94,18 +100,22 @@ export async function fetchDistinctEntityCountsByProvider(): Promise<
 
     for (const row of rows) {
       const rec = row as Record<string, unknown>
-      const provider = rec.provider != null ? String(rec.provider) : ''
-      const value = rec._value
-      const n =
-        typeof value === 'number'
-          ? value
-          : typeof value === 'string'
-            ? Number(value)
-            : Number(value)
+      const pv = readFluxRowField(rec, 'provider')
+      const provider = pv != null ? String(pv) : ''
+      const n = parseFluxAggregateValue(rec)
       if (!provider || Number.isNaN(n)) {
         continue
       }
       out[provider] = n
+    }
+
+    logEntityInfluxGroupedSample(out, 40)
+    if (rows.length > 0 && Object.keys(out).length === 0) {
+      logInfluxRawRowSample(
+        '[diag/entities]',
+        rows as Record<string, unknown>[],
+        3,
+      )
     }
 
     return out

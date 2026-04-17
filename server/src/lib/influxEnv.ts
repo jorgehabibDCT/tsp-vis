@@ -73,3 +73,19 @@ export function getInfluxQueryTimeoutMs(): number {
 export function getProvidersMeasurement(): string {
   return process.env.INFLUX_PROVIDERS_MEASUREMENT?.trim() || 'providers'
 }
+
+/**
+ * Comma-separated `_field` names on `providers` (with `label == label_count`) whose `_value`
+ * is treated as the event/alarm label signal for the expandable dashboard metric.
+ * Default: `label_type,label_dscrptn_en,label_dscrptn_es`.
+ */
+export function getInfluxEventLabelFields(): string[] {
+  const raw = process.env.INFLUX_EVENT_LABEL_FIELDS?.trim()
+  if (!raw) {
+    return ['label_type', 'label_dscrptn_en', 'label_dscrptn_es']
+  }
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+}

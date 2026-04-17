@@ -1,7 +1,8 @@
 /**
  * Backend-owned mock for `GET /api/dashboard/tsp-comparison`.
  * Shape matches the frontend `TspComparisonResponse` contract.
- * `tspComparisonService` merges Influx-backed entity counts into metric `metric-entities` when configured; this file remains the fallback and source for other metrics.
+ * `tspComparisonService` merges Influx-backed data into `metric-entities` and `metric-events-alarms`
+ * when configured; this file remains the fallback and source for unmerged metrics (e.g. Integration %).
  */
 
 const tspIds = {

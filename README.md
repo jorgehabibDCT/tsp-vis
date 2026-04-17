@@ -51,7 +51,8 @@ When **`INFLUX_HOST`**, **`INFLUX_TOKEN`**, **`INFLUX_ORG`**, and **`INFLUX_BUCK
 | `INFLUX_TOKEN` | API token. |
 | `INFLUX_ORG` | Organization name. |
 | `INFLUX_BUCKET` | Bucket name. |
-| `INFLUX_ENTITY_RANGE` | Optional Flux range (default `-90d`). |
+| `INFLUX_ENTITY_RANGE` | Optional Flux range (default **`-7d`**; widen only if needed, e.g. `-30d`). |
+| `INFLUX_QUERY_TIMEOUT_MS` | Optional HTTP timeout for Influx requests in ms (default **60000**). |
 | `INFLUX_PROVIDERS_MEASUREMENT` | Optional measurement name (default `providers`). |
 | `TSP_PROVIDER_SLUGS` | Optional JSON map from dashboard TSP id → Influx `provider` tag value (see `server/src/config/tspProviderMap.ts`). |
 

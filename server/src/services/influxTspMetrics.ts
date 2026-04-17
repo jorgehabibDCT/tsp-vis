@@ -2,6 +2,7 @@ import { getQueryApi } from '../lib/influx.js'
 import {
   getInfluxBucket,
   getInfluxEntityRange,
+  getInfluxQueryTimeoutMs,
   getProvidersMeasurement,
 } from '../lib/influxEnv.js'
 
@@ -16,6 +17,7 @@ import {
  * We keep only `_time`, `provider`, and `vid` so the pipeline never merges heterogeneous `_value` columns.
  *
  * Flux: one row per (provider, vid), then count rows per provider. `_value` is not used until the final `count()`.
+ * Narrow `INFLUX_ENTITY_RANGE` (default `-7d`) reduces scan cost vs multi-month windows.
  */
 export function buildDistinctVidCountByProviderFlux(): string {
   const bucket = escapeFluxString(getInfluxBucket())
@@ -41,30 +43,62 @@ function escapeFluxString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
+function isTimeoutError(e: unknown): boolean {
+  if (e && typeof e === 'object' && 'name' in e) {
+    return (e as { name: string }).name === 'RequestTimedOutError'
+  }
+  return /timed?\s*out|timeout/i.test(String(e))
+}
+
 /** Influx `provider` tag value -> distinct vid count in range. */
 export async function fetchDistinctEntityCountsByProvider(): Promise<
   Record<string, number>
 > {
-  const flux = buildDistinctVidCountByProviderFlux()
-  const queryApi = getQueryApi()
-  const rows = await queryApi.collectRows(flux)
-  const out: Record<string, number> = {}
+  const range = getInfluxEntityRange()
+  const measurement = getProvidersMeasurement()
+  const timeoutMs = getInfluxQueryTimeoutMs()
+  const bucket = getInfluxBucket()
 
-  for (const row of rows) {
-    const rec = row as Record<string, unknown>
-    const provider = rec.provider != null ? String(rec.provider) : ''
-    const value = rec._value
-    const n =
-      typeof value === 'number'
-        ? value
-        : typeof value === 'string'
-          ? Number(value)
-          : Number(value)
-    if (!provider || Number.isNaN(n)) {
-      continue
+  console.log(
+    `[influx/entities] start bucket=${bucket} range=${range} measurement=${measurement} timeoutMs=${timeoutMs}`,
+  )
+
+  const t0 = Date.now()
+  try {
+    const flux = buildDistinctVidCountByProviderFlux()
+    const queryApi = getQueryApi()
+    const rows = await queryApi.collectRows(flux)
+    const elapsed = Date.now() - t0
+    console.log(
+      `[influx/entities] ok elapsedMs=${elapsed} resultRows=${rows.length}`,
+    )
+
+    const out: Record<string, number> = {}
+
+    for (const row of rows) {
+      const rec = row as Record<string, unknown>
+      const provider = rec.provider != null ? String(rec.provider) : ''
+      const value = rec._value
+      const n =
+        typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? Number(value)
+            : Number(value)
+      if (!provider || Number.isNaN(n)) {
+        continue
+      }
+      out[provider] = n
     }
-    out[provider] = n
-  }
 
-  return out
+    return out
+  } catch (e) {
+    const elapsed = Date.now() - t0
+    const kind = isTimeoutError(e) ? 'timeout' : 'error'
+    console.warn(
+      `[influx/entities] ${kind} elapsedMs=${elapsed} range=${range} measurement=${measurement}`,
+      e,
+    )
+    throw e
+  }
 }

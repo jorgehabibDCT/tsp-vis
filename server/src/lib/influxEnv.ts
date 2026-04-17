@@ -48,9 +48,25 @@ export function getInfluxBucket(): string {
   return b
 }
 
-/** Flux duration for entity query, e.g. `-90d`. */
+/**
+ * Flux `range(start: …)` for the entity-count query.
+ * Default `-7d` keeps scans small; widen with `INFLUX_ENTITY_RANGE` if needed (e.g. `-30d`).
+ */
 export function getInfluxEntityRange(): string {
-  return process.env.INFLUX_ENTITY_RANGE?.trim() || '-90d'
+  return process.env.INFLUX_ENTITY_RANGE?.trim() || '-7d'
+}
+
+/**
+ * HTTP socket timeout (ms) for Influx requests. Default 60s (client default is 10s, often too low).
+ * Set `INFLUX_QUERY_TIMEOUT_MS` on Render if queries need longer.
+ */
+export function getInfluxQueryTimeoutMs(): number {
+  const raw = process.env.INFLUX_QUERY_TIMEOUT_MS?.trim()
+  if (!raw) {
+    return 60_000
+  }
+  const n = Number.parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : 60_000
 }
 
 /** Measurement name containing `provider` and `vid` tags (see 2285.csv exploration). */

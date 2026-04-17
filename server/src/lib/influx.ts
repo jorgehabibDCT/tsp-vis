@@ -1,6 +1,7 @@
 import { InfluxDB } from '@influxdata/influxdb-client'
 import {
   getInfluxOrg,
+  getInfluxQueryTimeoutMs,
   getInfluxToken,
   getInfluxUrl,
 } from './influxEnv.js'
@@ -12,6 +13,7 @@ export function getInfluxClient(): InfluxDB {
     client = new InfluxDB({
       url: getInfluxUrl(),
       token: getInfluxToken(),
+      timeout: getInfluxQueryTimeoutMs(),
     })
   }
   return client

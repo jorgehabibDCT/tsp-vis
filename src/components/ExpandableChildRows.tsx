@@ -1,0 +1,88 @@
+import { Fragment } from 'react'
+import type { ExpandableMetricRow, Tsp } from '../types/dashboard'
+import { formatInteger } from '../utils/format'
+
+type ExpandableChildRowsProps = {
+  metric: ExpandableMetricRow
+  tsps: Tsp[]
+  detailsId: string
+}
+
+function valueForLabel(
+  metric: ExpandableMetricRow,
+  tspId: string,
+  groupId: string,
+  labelIndex: number,
+): number | null {
+  const cell = metric.values[tspId]
+  if (!cell || cell.kind !== 'expandable') {
+    return null
+  }
+  const group = cell.groups.find((g) => g.groupId === groupId)
+  if (!group) {
+    return null
+  }
+  return group.values[labelIndex] ?? null
+}
+
+export function ExpandableChildRows({
+  metric,
+  tsps,
+  detailsId,
+}: ExpandableChildRowsProps) {
+  const { groups } = metric.structure
+
+  return (
+    <>
+      {groups.map((group, groupIndex) => (
+        <Fragment key={`${metric.id}-${group.id}`}>
+          <tr
+            className="comparison-table__row comparison-table__row--group"
+            {...(groupIndex === 0 ? { id: detailsId } : {})}
+          >
+            <th
+              scope="row"
+              className="comparison-table__label comparison-table__label--group"
+            >
+              {group.title}
+            </th>
+            {tsps.map((tsp) => (
+              <td
+                key={tsp.id}
+                className="comparison-table__num comparison-table__num--muted"
+              >
+                —
+              </td>
+            ))}
+          </tr>
+          {group.labels.map((label, labelIndex) => (
+            <tr
+              key={`${metric.id}-${group.id}-${label.id}`}
+              className="comparison-table__row comparison-table__row--detail"
+            >
+              <th
+                scope="row"
+                className="comparison-table__label comparison-table__label--detail"
+              >
+                {label.name}
+              </th>
+              {tsps.map((tsp) => {
+                const v = valueForLabel(
+                  metric,
+                  tsp.id,
+                  group.id,
+                  labelIndex,
+                )
+                return (
+                  <td key={tsp.id} className="comparison-table__num">
+                    {formatInteger(v)}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </Fragment>
+      ))}
+    </>
+  )
+}

@@ -109,72 +109,6 @@ export const DATA_RICHNESS_GROUPS: MatrixGroup[] = [
   },
 ]
 
-const EVENT_SUPPORT_STRENGTH = [
-  84, 67, 72, 58, 63, 60, 74, 70, 82, 55, 78, 66, 64, 88, 61, 57, 69, 52, 73,
-]
-const DATA_RICHNESS_STRENGTH = [
-  92, 78, 81, 75, 72, 76, 88, 84, 90, 69, 87, 73, 68, 94, 70, 66, 80, 64, 85,
-]
-const RISK_INDEX_VALUES = [
-  73, 58, 65, 52, 56, 60, 71, 68, 76, 49, 74, 57, 53, 81, 55, 50, 63, 47, 70,
-]
-const INTEGRATION_VALUES = [
-  89, 74, 77, 69, 71, 73, 82, 79, 86, 65, 84, 70, 68, 90, 72, 67, 76, 63, 80,
-]
-const MOCK_ENTITY_VALUES = [
-  2310, 1280, 1540, 980, 1110, 1235, 2015, 1780, 2490, 890, 2150, 1190, 1040, 2670, 1155, 940, 1395, 760, 1860,
-]
-
-function supportEnabled(
-  strength: number,
-  tspIndex: number,
-  groupIndex: number,
-  labelIndex: number,
-): boolean {
-  const score = (tspIndex * 17 + groupIndex * 11 + labelIndex * 13) % 100
-  return score < strength
-}
-
-export function buildSupportMatrixValues(
-  groups: MatrixGroup[],
-  strengths: number[],
-): Record<string, { kind: 'expandable'; summary: number; groups: { groupId: string; values: boolean[] }[] }> {
-  const out: Record<
-    string,
-    { kind: 'expandable'; summary: number; groups: { groupId: string; values: boolean[] }[] }
-  > = {}
-  DASHBOARD_TSPS.forEach((tsp, tspIndex) => {
-    const strength = strengths[tspIndex] ?? 0
-    let summary = 0
-    const groupValues = groups.map((group, groupIndex) => {
-      const values = group.labels.map((_label, labelIndex) => {
-        const enabled = supportEnabled(strength, tspIndex, groupIndex, labelIndex)
-        if (enabled) {
-          summary += 1
-        }
-        return enabled
-      })
-      return { groupId: group.id, values }
-    })
-    out[tsp.id] = {
-      kind: 'expandable',
-      summary,
-      groups: groupValues,
-    }
-  })
-  return out
-}
-
-export function buildScalarValues(
-  values: number[],
-): Record<string, { kind: 'scalar'; value: number }> {
-  const out: Record<string, { kind: 'scalar'; value: number }> = {}
-  DASHBOARD_TSPS.forEach((tsp, index) => {
-    out[tsp.id] = { kind: 'scalar', value: values[index] ?? 0 }
-  })
-  return out
-}
-
 export function buildProviderSlugDefaults(): Record<string, string> {
   const out: Record<string, string> = {}
   for (const tsp of DASHBOARD_TSPS) {
@@ -184,17 +118,3 @@ export function buildProviderSlugDefaults(): Record<string, string> {
   }
   return out
 }
-
-export const DASHBOARD_EVENT_SUPPORT_VALUES = buildSupportMatrixValues(
-  EVENT_ALARM_GROUPS,
-  EVENT_SUPPORT_STRENGTH,
-)
-
-export const DASHBOARD_DATA_RICHNESS_VALUES = buildSupportMatrixValues(
-  DATA_RICHNESS_GROUPS,
-  DATA_RICHNESS_STRENGTH,
-)
-
-export const DASHBOARD_RISK_INDEX_VALUES = buildScalarValues(RISK_INDEX_VALUES)
-export const DASHBOARD_INTEGRATION_VALUES = buildScalarValues(INTEGRATION_VALUES)
-export const DASHBOARD_MOCK_ENTITY_VALUES = buildScalarValues(MOCK_ENTITY_VALUES)

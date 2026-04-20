@@ -1,13 +1,15 @@
 import {
-  DASHBOARD_DATA_RICHNESS_VALUES,
-  DASHBOARD_EVENT_SUPPORT_VALUES,
-  DASHBOARD_INTEGRATION_VALUES,
-  DASHBOARD_MOCK_ENTITY_VALUES,
-  DASHBOARD_RISK_INDEX_VALUES,
   DASHBOARD_TSPS,
   DATA_RICHNESS_GROUPS,
   EVENT_ALARM_GROUPS,
 } from '../config/dashboardMatrixConfig.js'
+import {
+  CURATED_DATA_RICHNESS_VALUES,
+  CURATED_ENTITY_MOCK_VALUES,
+  CURATED_EVENT_SUPPORT_VALUES,
+  CURATED_RISK_INDEX_VALUES,
+  INTEGRATION_UNDEFINED_PLACEHOLDER_VALUES,
+} from '../config/dashboardTruthSources.js'
 
 /**
  * Backend-owned mock for `GET /api/dashboard/tsp-comparison`.
@@ -21,14 +23,14 @@ export const mockTspComparisonResponse = {
       label: 'Number of Entities (Vehicles or Assets)',
       type: 'scalar',
       kind: 'integer',
-      values: DASHBOARD_MOCK_ENTITY_VALUES,
+      values: CURATED_ENTITY_MOCK_VALUES,
     },
     {
       id: 'metric-integration',
       label: 'Integration %',
       type: 'scalar',
       kind: 'percent',
-      values: DASHBOARD_INTEGRATION_VALUES,
+      values: INTEGRATION_UNDEFINED_PLACEHOLDER_VALUES,
     },
     {
       id: 'metric-events-alarms',
@@ -36,7 +38,7 @@ export const mockTspComparisonResponse = {
       type: 'expandable',
       kind: 'support',
       structure: { groups: EVENT_ALARM_GROUPS },
-      values: DASHBOARD_EVENT_SUPPORT_VALUES,
+      values: CURATED_EVENT_SUPPORT_VALUES,
     },
     {
       id: 'metric-data-richness',
@@ -44,14 +46,14 @@ export const mockTspComparisonResponse = {
       type: 'expandable',
       kind: 'support',
       structure: { groups: DATA_RICHNESS_GROUPS },
-      values: DASHBOARD_DATA_RICHNESS_VALUES,
+      values: CURATED_DATA_RICHNESS_VALUES,
     },
     {
       id: 'metric-risk-index',
       label: 'Risk Index Enablement',
       type: 'scalar',
       kind: 'score',
-      values: DASHBOARD_RISK_INDEX_VALUES,
+      values: CURATED_RISK_INDEX_VALUES,
     },
   ],
 } as const

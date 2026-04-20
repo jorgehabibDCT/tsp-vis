@@ -15,23 +15,18 @@ import {
 } from './dashboardInfluxDiagnostics.js'
 
 /**
- * Event / alarm label roll-up for the expandable metric.
+ * Distinct vehicles per label signal for Event labels / Alarms Info (vehicle coverage).
  *
- * **Measurement:** `providers` (same as entity counts; override `INFLUX_PROVIDERS_MEASUREMENT`).
+ * **Measurement:** `providers` (override `INFLUX_PROVIDERS_MEASUREMENT`).
  * **Rows:** `label == "label_count"` and `_field` in `getInfluxEventLabelFields()` (default
- *   **`label_type` only**) — `_value` is the machine label code. Override env to include
- *   description fields when intentional (may overlap semantically with `label_type`).
- * **Provider:** `provider` tag (same slugs as `TSP_PROVIDER_SLUGS` / entity metric).
- * **Time range:** `INFLUX_ENTITY_RANGE` (default `-3d`), same as entity query.
+ *   **`label_type` only**) — `_value` is the machine label code.
+ * **Provider:** `provider` tag; **vehicle:** `vid` tag.
+ * **Time range:** `INFLUX_ENTITY_RANGE` (same as entity metric).
  *
- * **Aggregation:** add **`one: 1`** (not in the group key), `keep` it with `provider` + `lbl`,
- * then `group(columns: ["provider", "lbl"])` and **`count(column: "one")`** — cannot use
- * `_time` (time type) or `lbl` / `provider` (group-key columns) as the aggregate column.
- * collectRows typically returns the count on **`one`**, not `_value`.
- *
- * **Guards:** `string()` on `_value` avoids mixed-type schema issues; empty `lbl` dropped.
+ * **Pipeline:** Collapse time series to one row per `(provider, vid, lbl)`, then
+ * `count(column: "vid")` per `(provider, lbl)` → distinct vehicles that reported that label.
  */
-export function buildEventLabelCountsByProviderFlux(): string {
+export function buildDistinctVehicleCountByProviderAndLabelFlux(): string {
   const bucket = escapeFluxString(getInfluxBucket())
   const measurement = escapeFluxString(getProvidersMeasurement())
   const range = getInfluxEntityRange()
@@ -51,17 +46,21 @@ from(bucket: "${bucket}")
   |> filter(fn: (r) => ${fieldOrs})
   |> filter(fn: (r) => exists r.provider)
   |> filter(fn: (r) => r.provider != "")
-  |> map(fn: (r) => ({ r with lbl: string(v: r._value), one: 1 }))
+  |> filter(fn: (r) => exists r.vid)
+  |> filter(fn: (r) => r.vid != "")
+  |> map(fn: (r) => ({ r with lbl: string(v: r._value) }))
   |> filter(fn: (r) => r.lbl != "")
-  |> keep(columns: ["_time", "provider", "lbl", "one"])
+  |> keep(columns: ["_time", "provider", "vid", "lbl"])
+  |> group(columns: ["provider", "vid", "lbl"])
+  |> first(column: "_time")
   |> group(columns: ["provider", "lbl"])
-  |> count(column: "one")
+  |> count(column: "vid")
 `.trim()
 }
 
-export function describeEventLabelFluxGuards(flux: string): string {
+export function describeEventLabelVidFluxGuards(flux: string): string {
   const tag = INFLUX_EVENT_LABEL_ROW.labelTagValue
-  return `guards label_tag=${flux.includes(tag)} count_one=${flux.includes('count(column: "one")')}`
+  return `guards label_tag=${flux.includes(tag)} count_vid=${flux.includes('count(column: "vid")')} group_vid_lbl=${flux.includes('group(columns: ["provider", "vid", "lbl"])')}`
 }
 
 function escapeFluxString(s: string): string {
@@ -75,8 +74,8 @@ function isTimeoutError(e: unknown): boolean {
   return /timed?\s*out|timeout/i.test(String(e))
 }
 
-/** Nested: Influx `provider` slug -> raw `lbl` string -> row count in range. */
-export async function fetchEventLabelCountsByProvider(): Promise<
+/** Nested: Influx `provider` slug -> raw `lbl` string -> distinct `vid` count in range. */
+export async function fetchDistinctVehicleCountByProviderAndLabel(): Promise<
   Record<string, Record<string, number>>
 > {
   const range = getInfluxEntityRange()
@@ -86,13 +85,15 @@ export async function fetchEventLabelCountsByProvider(): Promise<
   const fields = getInfluxEventLabelFields()
 
   console.log(
-    `[influx/event-labels] start bucket=${bucket} range=${range} measurement=${measurement} fields=${fields.join(',')} envTimeoutMs=${timeoutMs}`,
+    `[influx/event-labels] distinct-vid query bucket=${bucket} range=${range} measurement=${measurement} fields=${fields.join(',')} envTimeoutMs=${timeoutMs}`,
   )
 
-  const flux = buildEventLabelCountsByProviderFlux()
-  console.log(`[influx/event-labels] ${describeEventLabelFluxGuards(flux)}`)
+  const flux = buildDistinctVehicleCountByProviderAndLabelFlux()
+  console.log(`[influx/event-labels] ${describeEventLabelVidFluxGuards(flux)}`)
   console.log(
-    '[influx/event-labels] flux query (exact):\n---\n' + flux + '\n---',
+    '[influx/event-labels] flux query (distinct vehicle per label, exact):\n---\n' +
+      flux +
+      '\n---',
   )
 
   const t0 = Date.now()
@@ -101,7 +102,7 @@ export async function fetchEventLabelCountsByProvider(): Promise<
     const rows = await queryApi.collectRows(flux)
     const elapsed = Date.now() - t0
     console.log(
-      `[influx/event-labels] ok elapsedMs=${elapsed} resultRows=${rows.length}`,
+      `[influx/event-labels] distinct-vid ok elapsedMs=${elapsed} resultRows=${rows.length}`,
     )
 
     logInfluxRawRowSample(
@@ -118,7 +119,7 @@ export async function fetchEventLabelCountsByProvider(): Promise<
       const provider = pv != null ? String(pv) : ''
       const lv = readFluxRowField(rec, 'lbl')
       const labelSignal = lv != null ? String(lv) : ''
-      const n = parseFluxCountedColumn(rec, 'one')
+      const n = parseFluxCountedColumn(rec, 'vid')
       if (!provider || !labelSignal || Number.isNaN(n)) {
         continue
       }
@@ -142,7 +143,7 @@ export async function fetchEventLabelCountsByProvider(): Promise<
     const elapsed = Date.now() - t0
     const kind = isTimeoutError(e) ? 'timeout' : 'error'
     console.warn(
-      `[influx/event-labels] ${kind} elapsedMs=${elapsed} range=${range} measurement=${measurement} ${describeEventLabelFluxGuards(flux)}`,
+      `[influx/event-labels] distinct-vid ${kind} elapsedMs=${elapsed} range=${range} measurement=${measurement} ${describeEventLabelVidFluxGuards(flux)}`,
       e,
     )
     console.warn(

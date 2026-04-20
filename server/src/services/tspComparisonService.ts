@@ -3,16 +3,16 @@ import { isInfluxConfigured } from '../lib/influxEnv.js'
 import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
 import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { fetchDistinctEntityCountsByProvider } from './influxTspMetrics.js'
-import {
-  logTspSlugMapVsInfluxProviders,
-} from './dashboardInfluxDiagnostics.js'
+import { fetchDistinctVehicleCountByProviderAndLabel } from './influxEventLabels.js'
+import { mergeEventLabelVehicleCoverageIntoPayload } from './mergeEventLabelDashboard.js'
+import { logTspSlugMapVsInfluxProviders } from './dashboardInfluxDiagnostics.js'
 
 type DashboardPayload = typeof mockTspComparisonResponse
 
 function mergeEntityCountsIntoPayload(
   payload: DashboardPayload,
   byProvider: Record<string, number>,
-  slugByTspId: Record<string, string>,
+  slugByTspId: Record<string, string | null>,
 ): void {
   const metric = payload.metrics.find((m) => m.id === 'metric-entities')
   if (!metric || metric.type !== 'scalar') {
@@ -40,7 +40,8 @@ function mergeEntityCountsIntoPayload(
 
 /**
  * Assembles the dashboard matrix.
- * Only the entities row is Influx-backed in this slice; all other rows remain curated mock.
+ * **Number of Entities** and **Event labels / Alarms Info** (for slug-mapped TSPs) use Influx
+ * when configured; Integration %, data richness, and Risk Index remain curated mock.
  */
 async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   if (!isInfluxConfigured()) {
@@ -52,17 +53,39 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
     JSON.stringify(mockTspComparisonResponse),
   ) as DashboardPayload
 
+  let entityCountByProvider: Record<string, number> = {}
   try {
-    const byProvider = await fetchDistinctEntityCountsByProvider()
+    entityCountByProvider = await fetchDistinctEntityCountsByProvider()
     logTspSlugMapVsInfluxProviders(
       'entities',
       slugByTspId,
-      Object.keys(byProvider),
+      Object.keys(entityCountByProvider),
     )
-    mergeEntityCountsIntoPayload(payload, byProvider, slugByTspId)
+    mergeEntityCountsIntoPayload(payload, entityCountByProvider, slugByTspId)
   } catch (e) {
     console.warn(
       '[tspComparison] Influx entity aggregation failed; leaving Number of Entities mock',
+      e,
+    )
+  }
+
+  try {
+    const labelVidByProvider =
+      await fetchDistinctVehicleCountByProviderAndLabel()
+    logTspSlugMapVsInfluxProviders(
+      'event-labels',
+      slugByTspId,
+      Object.keys(labelVidByProvider),
+    )
+    mergeEventLabelVehicleCoverageIntoPayload(
+      payload,
+      entityCountByProvider,
+      labelVidByProvider,
+      slugByTspId,
+    )
+  } catch (e) {
+    console.warn(
+      '[tspComparison] Influx distinct-vid event-label query failed; leaving Event labels / Alarms Info curated mock',
       e,
     )
   }
@@ -72,8 +95,10 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
 
 /**
  * Returns the TSP comparison dashboard payload (cached in memory with TTL).
- * When Influx env is set, **Number of Entities** is merged from Flux when query succeeds.
- * Capability matrix rows and risk score remain curated mock in this slice.
+ * When Influx env is set, **Number of Entities** is merged from Flux when the query succeeds.
+ * **Event labels / Alarms Info** uses distinct-vehicle coverage vs entities (≥50% default) for
+ * TSPs with a provider slug; other capability rows and Risk Index remain curated mock unless
+ * extended later.
  */
 export async function getTspComparisonDashboard(): Promise<DashboardPayload> {
   return withDashboardResponseCache(buildTspComparisonDashboard)

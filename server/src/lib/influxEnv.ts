@@ -69,6 +69,26 @@ export function getInfluxQueryTimeoutMs(): number {
   return Number.isFinite(n) && n > 0 ? n : 60_000
 }
 
+/**
+ * Minimum fraction of distinct vehicles (per provider) that must report a label for the
+ * Event labels / Alarms Info matrix to treat that label as supported. Default `0.5`.
+ * Override with `EVENT_LABEL_COVERAGE_THRESHOLD` (e.g. `0.5` or `50` for 50%).
+ */
+export function getEventLabelCoverageThreshold(): number {
+  const raw = process.env.EVENT_LABEL_COVERAGE_THRESHOLD?.trim()
+  if (!raw) {
+    return 0.5
+  }
+  let n = Number.parseFloat(raw)
+  if (n > 1 && n <= 100) {
+    n = n / 100
+  }
+  if (!Number.isFinite(n) || n <= 0 || n > 1) {
+    return 0.5
+  }
+  return n
+}
+
 /** Measurement name containing `provider` and `vid` tags (see 2285.csv exploration). */
 export function getProvidersMeasurement(): string {
   return process.env.INFLUX_PROVIDERS_MEASUREMENT?.trim() || 'providers'

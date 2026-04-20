@@ -57,7 +57,9 @@ export const DASHBOARD_ROW_SEMANTICS: Record<string, DashboardRowSemantics> = {
   'metric-events-alarms': {
     sourceType: 'curated_matrix',
     meaning:
-      'Curated per-TSP capability matrix of label codes (machine ids in rows — presence, not frequency). Anchored to pegasus256 label inventory in the Influx audit.',
+      'Label support matrix: curated fallback when no Influx or no provider slug; with Influx, mapped TSPs use distinct-vehicle coverage vs total entities in the evaluation window.',
+    accuracyNote:
+      'Live-mapped TSPs: a label is supported only if distinct vehicles with that label ÷ distinct vehicles for the provider ≥ EVENT_LABEL_COVERAGE_THRESHOLD (default 0.5), same range as entities.',
   },
   'metric-data-richness': {
     sourceType: 'curated_matrix',

@@ -1,33 +1,75 @@
 import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
+import { getEventLabelCoverageThreshold } from '../lib/influxEnv.js'
 import { resolveDashboardChild } from '../config/eventLabelGroups.js'
+import {
+  logEventLabelVehicleCoverageSample,
+  logEventLabelUnmappedTotals,
+} from './dashboardInfluxDiagnostics.js'
 
 type DashboardPayload = typeof mockTspComparisonResponse
 
 type MutableExpandableCell = {
   kind: 'expandable'
-  summary: number | null
-  groups: { groupId: string; values: (number | null)[] }[]
+  summary: number
+  groups: { groupId: string; values: boolean[] }[]
 }
 
 /**
- * Fills `metric-events-alarms` from Influx counts (`provider` slug -> raw label signal -> count).
- * Parent `summary` is the sum of all **mapped** child cell values (roll-up of displayed rows).
+ * When several raw Influx label strings map to the same matrix child, distinct-vid counts
+ * per raw string are not additive (unknown overlap). Use the max count as a conservative
+ * lower bound on union size for the threshold check.
  */
-export function mergeEventLabelCountsIntoPayload(
+function aggregateDistinctVehiclesByMatrixChild(
+  rawCounts: Record<string, number>,
+): Map<string, number> {
+  const byChild = new Map<string, number>()
+  for (const [raw, n] of Object.entries(rawCounts)) {
+    const ct = Number(n)
+    if (!Number.isFinite(ct) || ct <= 0) {
+      continue
+    }
+    const ref = resolveDashboardChild(raw)
+    if (!ref) {
+      continue
+    }
+    const prev = byChild.get(ref.childLabelId) ?? 0
+    byChild.set(ref.childLabelId, Math.max(prev, ct))
+  }
+  return byChild
+}
+
+/**
+ * For live-mapped TSPs, sets each Event labels / Alarms Info cell to **supported** only when
+ * `(vehicles_with_label / total_entities) >= threshold` (distinct `vid`, same window).
+ * TSPs without a provider slug keep the curated mock matrix unchanged.
+ */
+export function mergeEventLabelVehicleCoverageIntoPayload(
   payload: DashboardPayload,
-  countsByProvider: Record<string, Record<string, number>>,
-  slugByTspId: Record<string, string>,
+  entityCountByProvider: Record<string, number>,
+  labelVidCountByProvider: Record<string, Record<string, number>>,
+  slugByTspId: Record<string, string | null>,
 ): void {
   const metric = payload.metrics.find((m) => m.id === 'metric-events-alarms')
   if (!metric || metric.type !== 'expandable') {
     return
   }
 
+  const threshold = getEventLabelCoverageThreshold()
   const structure = metric.structure.groups
   const valuesByTsp = metric.values as unknown as Record<
     string,
     MutableExpandableCell
   >
+
+  logEventLabelUnmappedTotals(labelVidCountByProvider, slugByTspId)
+  logEventLabelVehicleCoverageSample(
+    structure,
+    slugByTspId,
+    entityCountByProvider,
+    labelVidCountByProvider,
+    threshold,
+    12,
+  )
 
   for (const tsp of payload.tsps) {
     const slug = slugByTspId[tsp.id]
@@ -37,45 +79,30 @@ export function mergeEventLabelCountsIntoPayload(
     }
 
     if (!slug) {
-      cell.summary = null
-      cell.groups = structure.map((g) => ({
-        groupId: g.id,
-        values: g.labels.map(() => null as number | null),
-      }))
       continue
     }
 
-    const groupsOut: MutableExpandableCell['groups'] = structure.map((g) => ({
-      groupId: g.id,
-      values: g.labels.map(() => 0 as number | null),
-    }))
+    const totalEntities = entityCountByProvider[slug] ?? 0
+    const rawByLabel = labelVidCountByProvider[slug] ?? {}
+    const vehiclesByChild = aggregateDistinctVehiclesByMatrixChild(rawByLabel)
 
-    const labelMap = countsByProvider[slug] ?? {}
-    let sum = 0
-    for (const [signal, rawN] of Object.entries(labelMap)) {
-      const n = Number(rawN)
-      if (!Number.isFinite(n) || n <= 0) {
-        continue
-      }
-      const ref = resolveDashboardChild(signal)
-      if (!ref) {
-        continue
-      }
-      const gi = structure.findIndex((g) => g.id === ref.groupId)
-      if (gi === -1) {
-        continue
-      }
-      const li = structure[gi].labels.findIndex((l) => l.id === ref.childLabelId)
-      if (li === -1) {
-        continue
-      }
-      const slot = groupsOut[gi].values[li]
-      const prev = typeof slot === 'number' ? slot : 0
-      groupsOut[gi].values[li] = prev + n
-      sum += n
-    }
+    let summary = 0
+    const groupsOut = structure.map((g) => {
+      const values = g.labels.map((l) => {
+        const vehiclesWith = vehiclesByChild.get(l.id) ?? 0
+        const ratio =
+          totalEntities > 0 ? vehiclesWith / totalEntities : 0
+        const supported =
+          totalEntities > 0 && ratio >= threshold
+        if (supported) {
+          summary += 1
+        }
+        return supported
+      })
+      return { groupId: g.id, values }
+    })
 
-    cell.summary = sum
+    cell.summary = summary
     cell.groups = groupsOut
   }
 }

@@ -95,10 +95,16 @@ export function logEntityInfluxGroupedSample(
 /** Log TSP→slug map and whether each Influx provider string matches any configured slug. */
 export function logTspSlugMapVsInfluxProviders(
   metricLabel: string,
-  slugByTspId: Record<string, string>,
+  slugByTspId: Record<string, string | null>,
   influxProviders: string[],
 ): void {
-  const configuredSlugs = [...new Set(Object.values(slugByTspId))]
+  const configuredSlugs = [
+    ...new Set(
+      Object.values(slugByTspId).filter(
+        (s): s is string => s != null && String(s).length > 0,
+      ),
+    ),
+  ]
   console.log(
     `[diag/${metricLabel}] tsp_id->provider_slug JSON=${stableStringify(slugByTspId, 800)}`,
   )
@@ -155,12 +161,87 @@ export function logEventLabelInfluxPreMapSample(
   }
 }
 
+/**
+ * Logs sampled per-label vehicle coverage vs entities for mapped TSPs (diagnostics only).
+ * First two slug-mapped TSPs × first six matrix label ids, up to `maxSamples` lines.
+ */
+export function logEventLabelVehicleCoverageSample(
+  groups: { id: string; labels: { id: string }[] }[],
+  slugByTspId: Record<string, string | null>,
+  entityByProvider: Record<string, number>,
+  labelVidByProvider: Record<string, Record<string, number>>,
+  threshold: number,
+  maxSamples: number,
+): void {
+  const flatIds = groups.flatMap((g) => g.labels.map((l) => l.id))
+  const sampleLabelIds = flatIds.slice(0, 6)
+
+  const aggregateChild = (raw: Record<string, number>): Map<string, number> => {
+    const byChild = new Map<string, number>()
+    for (const [rawKey, n] of Object.entries(raw)) {
+      const ct = Number(n)
+      if (!Number.isFinite(ct) || ct <= 0) {
+        continue
+      }
+      const ref = resolveDashboardChild(rawKey)
+      if (!ref) {
+        continue
+      }
+      const prev = byChild.get(ref.childLabelId) ?? 0
+      byChild.set(ref.childLabelId, Math.max(prev, ct))
+    }
+    return byChild
+  }
+
+  console.log(
+    `[diag/event-labels] vehicle_coverage threshold=${threshold} rule: vehicles_with_label/total_entities>=threshold (distinct vid per label; evaluation window matches entities)`,
+  )
+
+  const mappedTspIds = Object.entries(slugByTspId)
+    .filter(([, s]) => Boolean(s?.trim()))
+    .slice(0, 2)
+    .map(([id]) => id)
+
+  let logged = 0
+  for (const tspId of mappedTspIds) {
+    if (logged >= maxSamples) {
+      break
+    }
+    const slug = slugByTspId[tspId]!
+    const totalEntities = entityByProvider[slug] ?? 0
+    const byChild = aggregateChild(labelVidByProvider[slug] ?? {})
+
+    for (const labelId of sampleLabelIds) {
+      if (logged >= maxSamples) {
+        break
+      }
+      const vehiclesWith = byChild.get(labelId) ?? 0
+      const ratio = totalEntities > 0 ? vehiclesWith / totalEntities : 0
+      const support = totalEntities > 0 && ratio >= threshold
+      console.log(
+        `[diag/event-labels] coverage sample tsp_id=${tspId} provider_slug=${slug} label_id=${labelId} total_entities=${totalEntities} vehicles_with_label=${vehiclesWith} ratio=${ratio.toFixed(4)} support=${support}`,
+      )
+      logged += 1
+    }
+  }
+
+  if (logged === 0) {
+    console.log(
+      '[diag/event-labels] coverage sample: no lines (no slug-mapped TSPs or empty label list)',
+    )
+  }
+}
+
 /** Counts label→dashboard mapping misses (sum of points not routed to any child row). */
 export function logEventLabelUnmappedTotals(
   countsByProvider: Record<string, Record<string, number>>,
-  slugByTspId: Record<string, string>,
+  slugByTspId: Record<string, string | null>,
 ): void {
-  const configuredSlugs = new Set(Object.values(slugByTspId))
+  const configuredSlugs = new Set(
+    Object.values(slugByTspId).filter(
+      (s): s is string => s != null && s !== '',
+    ),
+  )
   let droppedUnmapped = 0
   let droppedUnknownProvider = 0
   let mappedPoints = 0

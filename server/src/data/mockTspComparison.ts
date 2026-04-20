@@ -7,6 +7,7 @@ import {
   CURATED_DATA_RICHNESS_VALUES,
   CURATED_ENTITY_MOCK_VALUES,
   CURATED_EVENT_SUPPORT_VALUES,
+  CURATED_RISK_INDEX_VALUES,
 } from '../config/dashboardTruthSources.js'
 import { INTEGRATION_UNDEFINED_PLACEHOLDER_VALUES } from '../config/integrationMetricSemantics.js'
 
@@ -65,15 +66,10 @@ export const mockTspComparisonResponse = {
     },
     {
       id: 'metric-risk-index',
-      label: 'Provider Opportunity Score',
+      label: 'Risk Index Enablement',
       type: 'scalar',
       kind: 'score',
-      values: Object.fromEntries(
-        DASHBOARD_TSPS.map((t) => [
-          t.id,
-          { kind: 'scalar' as const, value: null as null },
-        ]),
-      ),
+      values: CURATED_RISK_INDEX_VALUES,
     },
   ],
 } as const

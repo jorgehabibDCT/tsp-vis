@@ -52,10 +52,9 @@ function mergeEntityCountsIntoPayload(
 /**
  * Assembles the dashboard matrix.
  * **Number of Entities** and **Event labels / Alarms Info** (for slug-mapped TSPs) use Influx
- * when configured; Integration % and data richness remain curated mock for integrated
- * columns where not live. `Provider Opportunity Score` is derived after finalize from
- * breadth/depth/richness/scale × confidence. `finalizeDashboardPayload` sorts columns and
- * clears `pending_integration` metrics (no placeholder data).
+ * when configured; Integration %, data richness, and Risk Index remain curated mock for
+ * integrated columns. `finalizeDashboardPayload` sorts columns and clears all metrics for
+ * `pending_integration` TSPs (no placeholder data in the API response).
  */
 async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   if (!isInfluxConfigured()) {
@@ -131,7 +130,8 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
  * Returns the TSP comparison dashboard payload (cached in memory with TTL).
  * When Influx env is set, **Number of Entities** is merged from Flux when the query succeeds.
  * **Event labels / Alarms Info** uses distinct-vehicle coverage vs entities (≥50% default) for
- * TSPs with a provider slug; opportunity score is derived in the same response payload.
+ * TSPs with a provider slug; other capability rows and Risk Index remain curated mock unless
+ * extended later.
  */
 export async function getTspComparisonDashboard(): Promise<DashboardPayload> {
   return withDashboardResponseCache(buildTspComparisonDashboard)

@@ -1,5 +1,4 @@
 import type { TspComparisonResponse } from '../contracts/tspComparison'
-import { applyOpportunityScoresToPayload } from '../insights/providerOpportunityScore'
 
 type TspLike = {
   id: string
@@ -68,5 +67,4 @@ export function applyPendingIntegrationUnavailableState(
 export function finalizeDashboardPayload(model: TspComparisonResponse): void {
   model.tsps = sortDashboardTsps(model.tsps)
   applyPendingIntegrationUnavailableState(model)
-  applyOpportunityScoresToPayload(model)
 }

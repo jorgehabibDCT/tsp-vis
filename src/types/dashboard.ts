@@ -11,6 +11,7 @@ export type TspId = string
 export type Tsp = {
   id: TspId
   name: string
+  logoUrl?: string | null
 }
 
 export type ScalarCell = {
@@ -33,7 +34,7 @@ export type ExpandableCell = {
   groups: {
     groupId: string
     /** Same order and length as `ExpandableGroup.labels` for that group */
-    values: (number | null)[]
+    values: (number | boolean | null)[]
   }[]
 }
 
@@ -41,7 +42,7 @@ export type ScalarMetricRow = {
   id: string
   label: string
   type: 'scalar'
-  kind: 'integer' | 'percent'
+  kind: 'integer' | 'percent' | 'score'
   values: Record<TspId, ScalarCell>
 }
 
@@ -49,6 +50,7 @@ export type ExpandableMetricRow = {
   id: string
   label: string
   type: 'expandable'
+  kind?: 'count' | 'support'
   structure: {
     groups: ExpandableGroup[]
   }

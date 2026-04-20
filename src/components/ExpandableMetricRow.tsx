@@ -17,6 +17,12 @@ export function ExpandableMetricRow({
   onToggle,
   detailsId,
 }: ExpandableMetricRowProps) {
+  const isSupportMatrix = metric.kind === 'support'
+  const totalLabels = metric.structure.groups.reduce(
+    (acc, g) => acc + g.labels.length,
+    0,
+  )
+
   return (
     <tr className="comparison-table__row comparison-table__row--expandable-parent">
       <th scope="row" className="comparison-table__label comparison-table__label--with-toggle">
@@ -33,9 +39,14 @@ export function ExpandableMetricRow({
       {tsps.map((tsp) => {
         const cell = metric.values[tsp.id]
         const raw = cell?.summary ?? null
+        const display = isSupportMatrix
+          ? raw === null || Number.isNaN(raw)
+            ? '—'
+            : `${raw}/${totalLabels}`
+          : formatInteger(raw)
         return (
           <td key={tsp.id} className="comparison-table__num">
-            {formatInteger(raw)}
+            {display}
           </td>
         )
       })}

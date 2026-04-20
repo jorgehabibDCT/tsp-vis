@@ -3,10 +3,7 @@ import { isInfluxConfigured } from '../lib/influxEnv.js'
 import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
 import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { fetchDistinctEntityCountsByProvider } from './influxTspMetrics.js'
-import { fetchEventLabelCountsByProvider } from './influxEventLabels.js'
-import { mergeEventLabelCountsIntoPayload } from './mergeEventLabelDashboard.js'
 import {
-  logEventLabelUnmappedTotals,
   logTspSlugMapVsInfluxProviders,
 } from './dashboardInfluxDiagnostics.js'
 
@@ -42,7 +39,8 @@ function mergeEntityCountsIntoPayload(
 }
 
 /**
- * Assembles the dashboard (Influx-backed metrics when configured; per-metric fallback to mock).
+ * Assembles the dashboard matrix.
+ * Only the entities row is Influx-backed in this slice; all other rows remain curated mock.
  */
 async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   if (!isInfluxConfigured()) {
@@ -69,30 +67,13 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
     )
   }
 
-  try {
-    const eventCounts = await fetchEventLabelCountsByProvider()
-    logTspSlugMapVsInfluxProviders(
-      'event-labels',
-      slugByTspId,
-      Object.keys(eventCounts),
-    )
-    mergeEventLabelCountsIntoPayload(payload, eventCounts, slugByTspId)
-    logEventLabelUnmappedTotals(eventCounts, slugByTspId)
-  } catch (e) {
-    console.warn(
-      '[tspComparison] Influx event label aggregation failed; leaving Event labels / Alarms mock',
-      e,
-    )
-  }
-
   return payload
 }
 
 /**
  * Returns the TSP comparison dashboard payload (cached in memory with TTL).
- * When Influx env is set, **Number of Entities** and **Event labels / Alarms Info** are merged
- * from Flux when queries succeed; **Integration %** stays mock. Failed queries leave that
- * metric’s mock slice unchanged.
+ * When Influx env is set, **Number of Entities** is merged from Flux when query succeeds.
+ * Capability matrix rows and risk score remain curated mock in this slice.
  */
 export async function getTspComparisonDashboard(): Promise<DashboardPayload> {
   return withDashboardResponseCache(buildTspComparisonDashboard)

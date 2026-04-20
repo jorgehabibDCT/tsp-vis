@@ -13,7 +13,7 @@ function valueForLabel(
   tspId: string,
   groupId: string,
   labelIndex: number,
-): number | null {
+): number | boolean | null {
   const cell = metric.values[tspId]
   if (!cell || cell.kind !== 'expandable') {
     return null
@@ -31,6 +31,7 @@ export function ExpandableChildRows({
   detailsId,
 }: ExpandableChildRowsProps) {
   const { groups } = metric.structure
+  const isSupportMatrix = metric.kind === 'support'
 
   return (
     <>
@@ -73,9 +74,14 @@ export function ExpandableChildRows({
                   group.id,
                   labelIndex,
                 )
+                const text = isSupportMatrix
+                  ? v === true
+                    ? '✓'
+                    : '—'
+                  : formatInteger(typeof v === 'number' ? v : null)
                 return (
                   <td key={tsp.id} className="comparison-table__num">
-                    {formatInteger(v)}
+                    {text}
                   </td>
                 )
               })}

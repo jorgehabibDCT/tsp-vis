@@ -1,109 +1,57 @@
+import {
+  DASHBOARD_DATA_RICHNESS_VALUES,
+  DASHBOARD_EVENT_SUPPORT_VALUES,
+  DASHBOARD_INTEGRATION_VALUES,
+  DASHBOARD_MOCK_ENTITY_VALUES,
+  DASHBOARD_RISK_INDEX_VALUES,
+  DASHBOARD_TSPS,
+  DATA_RICHNESS_GROUPS,
+  EVENT_ALARM_GROUPS,
+} from '../config/dashboardMatrixConfig.js'
+
 /**
  * Backend-owned mock for `GET /api/dashboard/tsp-comparison`.
- * Shape matches the frontend `TspComparisonResponse` contract.
- * `tspComparisonService` merges Influx-backed data into `metric-entities` and `metric-events-alarms`
- * when configured; this file remains the fallback and source for unmerged metrics (e.g. Integration %).
+ * Keeps the matrix structure product expects; service may replace only entities with Influx.
  */
-
-const tspIds = {
-  fleetHub: 'tsp-fleethub',
-  trackLink: 'tsp-tracklink',
-  nexus: 'tsp-nexus',
-} as const
-
 export const mockTspComparisonResponse = {
-  tsps: [
-    { id: tspIds.fleetHub, name: 'FleetHub Pro' },
-    { id: tspIds.trackLink, name: 'TrackLink SaaS' },
-    { id: tspIds.nexus, name: 'Nexus Telemetry' },
-  ],
+  tsps: DASHBOARD_TSPS.map(({ id, name, logoUrl }) => ({ id, name, logoUrl })),
   metrics: [
     {
       id: 'metric-entities',
       label: 'Number of Entities (Vehicles or Assets)',
       type: 'scalar',
       kind: 'integer',
-      values: {
-        [tspIds.fleetHub]: { kind: 'scalar', value: 1284 },
-        [tspIds.trackLink]: { kind: 'scalar', value: 942 },
-        [tspIds.nexus]: { kind: 'scalar', value: 2103 },
-      },
+      values: DASHBOARD_MOCK_ENTITY_VALUES,
     },
     {
       id: 'metric-integration',
       label: 'Integration %',
       type: 'scalar',
       kind: 'percent',
-      values: {
-        [tspIds.fleetHub]: { kind: 'scalar', value: 87 },
-        [tspIds.trackLink]: { kind: 'scalar', value: 72 },
-        [tspIds.nexus]: { kind: 'scalar', value: 91 },
-      },
+      values: DASHBOARD_INTEGRATION_VALUES,
     },
     {
       id: 'metric-events-alarms',
       label: 'Event labels / Alarms Info',
       type: 'expandable',
-      structure: {
-        groups: [
-          {
-            id: 'grp-critical',
-            title: 'Critical alarms',
-            labels: [
-              { id: 'al-engine-off', name: 'Engine off (unauthorized)' },
-              { id: 'al-battery', name: 'Battery low' },
-              { id: 'al-door', name: 'Door open while armed' },
-            ],
-          },
-          {
-            id: 'grp-events',
-            title: 'Event labels',
-            labels: [
-              { id: 'ev-speed', name: 'Speeding' },
-              { id: 'ev-idle', name: 'Excessive idle' },
-              { id: 'ev-geofence', name: 'Geofence exit' },
-              { id: 'ev-harsh', name: 'Harsh braking' },
-            ],
-          },
-          {
-            id: 'grp-diagnostics',
-            title: 'Diagnostics',
-            labels: [
-              { id: 'dx-dtc', name: 'DTC active' },
-              { id: 'dx-maint', name: 'Maintenance due' },
-            ],
-          },
-        ],
-      },
-      values: {
-        [tspIds.fleetHub]: {
-          kind: 'expandable',
-          summary: 156,
-          groups: [
-            { groupId: 'grp-critical', values: [12, 28, 9] },
-            { groupId: 'grp-events', values: [34, 21, 18, 15] },
-            { groupId: 'grp-diagnostics', values: [11, 8] },
-          ],
-        },
-        [tspIds.trackLink]: {
-          kind: 'expandable',
-          summary: 203,
-          groups: [
-            { groupId: 'grp-critical', values: [19, 41, 14] },
-            { groupId: 'grp-events', values: [44, 33, 27, 22] },
-            { groupId: 'grp-diagnostics', values: [15, 8] },
-          ],
-        },
-        [tspIds.nexus]: {
-          kind: 'expandable',
-          summary: 118,
-          groups: [
-            { groupId: 'grp-critical', values: [7, 19, 5] },
-            { groupId: 'grp-events', values: [22, 17, 14, 12] },
-            { groupId: 'grp-diagnostics', values: [14, 8] },
-          ],
-        },
-      },
+      kind: 'support',
+      structure: { groups: EVENT_ALARM_GROUPS },
+      values: DASHBOARD_EVENT_SUPPORT_VALUES,
+    },
+    {
+      id: 'metric-data-richness',
+      label: 'Event Data Fields / Data Richness',
+      type: 'expandable',
+      kind: 'support',
+      structure: { groups: DATA_RICHNESS_GROUPS },
+      values: DASHBOARD_DATA_RICHNESS_VALUES,
+    },
+    {
+      id: 'metric-risk-index',
+      label: 'Risk Index Enablement',
+      type: 'scalar',
+      kind: 'score',
+      values: DASHBOARD_RISK_INDEX_VALUES,
     },
   ],
 } as const

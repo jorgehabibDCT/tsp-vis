@@ -27,7 +27,22 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
             </th>
             {model.tsps.map((tsp) => (
               <th key={tsp.id} scope="col" className="comparison-table__tsp">
-                {tsp.name}
+                <div className="comparison-table__tsp-header">
+                  <span className="comparison-table__tsp-logo-wrap" aria-hidden="true">
+                    {tsp.logoUrl ? (
+                      <img
+                        className="comparison-table__tsp-logo"
+                        src={tsp.logoUrl}
+                        alt=""
+                      />
+                    ) : (
+                      <span className="comparison-table__tsp-logo-placeholder">
+                        {tsp.name.charAt(0)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="comparison-table__tsp-name">{tsp.name}</span>
+                </div>
               </th>
             ))}
           </tr>

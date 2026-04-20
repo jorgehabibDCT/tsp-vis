@@ -17,10 +17,5 @@ export default function App() {
     )
   }
 
-  return (
-    <ComparisonDashboard
-      model={state.model}
-      dataSource={state.source}
-    />
-  )
+  return <ComparisonDashboard model={state.model} />
 }

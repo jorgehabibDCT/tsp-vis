@@ -4,7 +4,7 @@
 
 **Purpose:** Record how the bucket/Grafana “provider universe” relates to the current TSP comparison dashboard columns, using **Grafana screenshot evidence** as the practical reference for which `provider` values matter in operations—not only the original branded column list.
 
-**Scope:** Interpretation and product/strategy alignment. See `INFLUX_BUCKET_AUDIT.md` and `audit-output/providers.json` for automated bucket scans; Grafana panels (`Tipo de Evento por TSP`, ranked provider tables) reflect the same bucket in day-to-day use.
+**Scope:** Interpretation and product/strategy alignment. See `INFLUX_BUCKET_AUDIT.md` and `audit-output/providers.json` for automated bucket scans; Grafana panels (`Tipo de Evento por TSP`, ranked provider tables) reflect the same bucket in day-to-day use. Per-TSP CSV sample evidence: `TSP_AUDIT_CSV_MAPPING.md` (from `TSP Data Apr 20 2026 Audit.csv`).
 
 ---
 

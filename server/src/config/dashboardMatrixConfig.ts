@@ -3,8 +3,11 @@ type MatrixGroup = { id: string; title: string; labels: MatrixLabel[] }
 
 /**
  * Bucket `provider` tag alignment (see `server/INFLUX_BUCKET_AUDIT.md` / `server/audit-output/providers.json`).
- * - confident — brand/name clearly matches an observed slug; safe for live Influx joins.
- * - plausible_pending — reserved for future use when a candidate slug is suspected but unverified.
+ * CSV (`TSP Data Apr 20 2026 Audit.csv`): `properties_tag` / `groupName` used only for defensible
+ * upgrades; test, customer, personal-name, and `--` rows ignored.
+ *
+ * - confident — brand/name clearly matches an observed slug (audit and/or CSV).
+ * - plausible_pending — `properties_tag` is a reasonable candidate; naming not verified as identical brand.
  * - unmapped — `providerSlug` is null; column stays on curated mock for live-backed rows.
  */
 export type ProviderMappingConfidence =
@@ -70,12 +73,14 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
     providerSlug: null,
     providerMappingConfidence: 'unmapped',
   },
+  // plausible_pending — CSV: groupName "Telematics_advance Integracion" → properties_tag telematics_advance;
+  // aligns with TECNO-GPS telematics scope; not identical branding → keep plausible, not confident.
   {
     id: 'tsp-tecno-gps',
     name: 'TECNO-GPS',
     logoUrl: null,
-    providerSlug: null,
-    providerMappingConfidence: 'unmapped',
+    providerSlug: 'telematics_advance',
+    providerMappingConfidence: 'plausible_pending',
   },
   {
     id: 'tsp-itrack',

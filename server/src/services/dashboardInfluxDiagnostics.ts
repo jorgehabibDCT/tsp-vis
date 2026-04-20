@@ -2,7 +2,6 @@ import {
   normalizeInfluxLabelSignal,
   resolveDashboardChild,
 } from '../config/eventLabelGroups.js'
-
 /** Stable JSON for logs (sorted keys). */
 function stableStringify(obj: unknown, maxLen: number): string {
   try {
@@ -162,12 +161,106 @@ export function logEventLabelInfluxPreMapSample(
 }
 
 /**
+ * After merging live Influx data: confirms mapped columns got expected entity/event behavior
+ * and unmapped columns did not receive fabricated live numbers (entities stay null).
+ */
+export function logDashboardBackendLiveVerification(params: {
+  tsps: { id: string; name: string }[]
+  slugByTspId: Record<string, string | null>
+  entityByProvider: Record<string, number>
+  metrics: ReadonlyArray<{
+    id: string
+    type: string
+    values: Record<string, unknown>
+  }>
+  entitiesQuerySucceeded: boolean
+  eventLabelsQuerySucceeded: boolean
+}): void {
+  const {
+    tsps,
+    slugByTspId,
+    entityByProvider,
+    metrics,
+    entitiesQuerySucceeded,
+    eventLabelsQuerySucceeded,
+  } = params
+
+  const entityMetric = metrics.find((m) => m.id === 'metric-entities')
+  const eventMetric = metrics.find((m) => m.id === 'metric-events-alarms')
+  const entityValues = entityMetric?.type === 'scalar' ? entityMetric.values : undefined
+  const eventValues =
+    eventMetric?.type === 'expandable' ? eventMetric.values : undefined
+
+  console.log(
+    '[verify/dashboard] Live-backed rows: entities Influx=' +
+      entitiesQuerySucceeded +
+      ', event_labels Influx=' +
+      eventLabelsQuerySucceeded +
+      ' (unmapped TSPs: entities must stay null; events stay curated mock unless overwritten for mapped)',
+  )
+
+  if (!entitiesQuerySucceeded) {
+    console.warn(
+      '[verify/dashboard] Entity Flux did not merge — payload entity counts may still be curated mock; skipping entity expectation checks.',
+    )
+  }
+  if (!eventLabelsQuerySucceeded) {
+    console.warn(
+      '[verify/dashboard] Event-label Flux did not merge — event matrix may still be fully curated mock.',
+    )
+  }
+
+  for (const tsp of tsps) {
+    const slug = slugByTspId[tsp.id]
+    const entCell = entityValues?.[
+      tsp.id
+    ] as { kind: 'scalar'; value: number | null } | undefined
+    const entVal = entCell?.value ?? null
+
+    const evCell = eventValues?.[tsp.id] as
+      | { kind: 'expandable'; summary: number }
+      | undefined
+    const eventSummary = evCell?.kind === 'expandable' ? evCell.summary : null
+
+    if (!slug) {
+      if (entitiesQuerySucceeded && entVal !== null) {
+        console.warn(
+          `[verify/unmapped] UNEXPECTED: display_name="${tsp.name}" tsp_id=${tsp.id} entities=${entVal} (expected null — no provider slug)`,
+        )
+      } else {
+        console.log(
+          `[verify/unmapped] display_name="${tsp.name}" tsp_id=${tsp.id} provider_slug=null entities_value=${JSON.stringify(entVal)} event_label_summary=${eventSummary} note=${entitiesQuerySucceeded ? 'no_live_entity_merge_expected_null' : 'entity_query_failed_may_show_curated_mock_entities'}`,
+        )
+      }
+      continue
+    }
+
+    const expected = entitiesQuerySucceeded ? (entityByProvider[slug] ?? 0) : null
+    const match =
+      entitiesQuerySucceeded &&
+      expected !== null &&
+      entVal === expected
+
+    console.log(
+      `[verify/mapped] display_name="${tsp.name}" tsp_id=${tsp.id} provider_slug=${JSON.stringify(slug)} entities_value=${JSON.stringify(entVal)} expected_influx_entities=${expected === null ? 'n/a' : expected} entity_match=${entitiesQuerySucceeded ? match : 'n/a'} event_support_label_count=${eventLabelsQuerySucceeded ? eventSummary : 'curated_merge_skipped'}`,
+    )
+
+    if (entitiesQuerySucceeded && expected !== null && !match) {
+      console.warn(
+        `[verify/mapped] entity mismatch for ${tsp.id}: payload=${JSON.stringify(entVal)} vs influx map ${JSON.stringify(expected)}`,
+      )
+    }
+  }
+}
+
+/**
  * Logs sampled per-label vehicle coverage vs entities for mapped TSPs (diagnostics only).
- * First two slug-mapped TSPs × first six matrix label ids, up to `maxSamples` lines.
+ * All slug-mapped TSPs: first six matrix label ids each, up to `maxSamples` lines total.
  */
 export function logEventLabelVehicleCoverageSample(
   groups: { id: string; labels: { id: string }[] }[],
   slugByTspId: Record<string, string | null>,
+  tspNameById: Record<string, string>,
   entityByProvider: Record<string, number>,
   labelVidByProvider: Record<string, Record<string, number>>,
   threshold: number,
@@ -199,7 +292,6 @@ export function logEventLabelVehicleCoverageSample(
 
   const mappedTspIds = Object.entries(slugByTspId)
     .filter(([, s]) => Boolean(s?.trim()))
-    .slice(0, 2)
     .map(([id]) => id)
 
   let logged = 0
@@ -208,6 +300,7 @@ export function logEventLabelVehicleCoverageSample(
       break
     }
     const slug = slugByTspId[tspId]!
+    const displayName = tspNameById[tspId] ?? tspId
     const totalEntities = entityByProvider[slug] ?? 0
     const byChild = aggregateChild(labelVidByProvider[slug] ?? {})
 
@@ -219,7 +312,7 @@ export function logEventLabelVehicleCoverageSample(
       const ratio = totalEntities > 0 ? vehiclesWith / totalEntities : 0
       const support = totalEntities > 0 && ratio >= threshold
       console.log(
-        `[diag/event-labels] coverage sample tsp_id=${tspId} provider_slug=${slug} label_id=${labelId} total_entities=${totalEntities} vehicles_with_label=${vehiclesWith} ratio=${ratio.toFixed(4)} support=${support}`,
+        `[diag/event-labels] coverage sample tsp_name="${displayName}" tsp_id=${tspId} provider_slug=${slug} label_id=${labelId} total_entities=${totalEntities} vehicles_with_label=${vehiclesWith} ratio=${ratio.toFixed(4)} support=${support}`,
       )
       logged += 1
     }

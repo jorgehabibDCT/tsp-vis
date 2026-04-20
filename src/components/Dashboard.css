@@ -68,6 +68,15 @@
   color: var(--color-text-muted);
 }
 
+.comparison-dashboard__positioning-note {
+  margin: 0.5rem 0 0;
+  max-width: 34rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  opacity: 0.92;
+}
+
 .comparison-dashboard__main {
   min-width: 0;
 }

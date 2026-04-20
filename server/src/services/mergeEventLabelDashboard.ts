@@ -48,6 +48,7 @@ export function mergeEventLabelVehicleCoverageIntoPayload(
   entityCountByProvider: Record<string, number>,
   labelVidCountByProvider: Record<string, Record<string, number>>,
   slugByTspId: Record<string, string | null>,
+  tspNameById: Record<string, string>,
 ): void {
   const metric = payload.metrics.find((m) => m.id === 'metric-events-alarms')
   if (!metric || metric.type !== 'expandable') {
@@ -65,10 +66,11 @@ export function mergeEventLabelVehicleCoverageIntoPayload(
   logEventLabelVehicleCoverageSample(
     structure,
     slugByTspId,
+    tspNameById,
     entityCountByProvider,
     labelVidCountByProvider,
     threshold,
-    12,
+    24,
   )
 
   for (const tsp of payload.tsps) {

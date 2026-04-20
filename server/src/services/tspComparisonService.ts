@@ -5,7 +5,10 @@ import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { fetchDistinctEntityCountsByProvider } from './influxTspMetrics.js'
 import { fetchDistinctVehicleCountByProviderAndLabel } from './influxEventLabels.js'
 import { mergeEventLabelVehicleCoverageIntoPayload } from './mergeEventLabelDashboard.js'
-import { logTspSlugMapVsInfluxProviders } from './dashboardInfluxDiagnostics.js'
+import {
+  logTspSlugMapVsInfluxProviders,
+  logDashboardBackendLiveVerification,
+} from './dashboardInfluxDiagnostics.js'
 
 type DashboardPayload = typeof mockTspComparisonResponse
 
@@ -53,7 +56,12 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
     JSON.stringify(mockTspComparisonResponse),
   ) as DashboardPayload
 
+  const tspNameById = Object.fromEntries(
+    payload.tsps.map((t) => [t.id, t.name]),
+  )
+
   let entityCountByProvider: Record<string, number> = {}
+  let entitiesQuerySucceeded = false
   try {
     entityCountByProvider = await fetchDistinctEntityCountsByProvider()
     logTspSlugMapVsInfluxProviders(
@@ -62,6 +70,7 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
       Object.keys(entityCountByProvider),
     )
     mergeEntityCountsIntoPayload(payload, entityCountByProvider, slugByTspId)
+    entitiesQuerySucceeded = true
   } catch (e) {
     console.warn(
       '[tspComparison] Influx entity aggregation failed; leaving Number of Entities mock',
@@ -69,6 +78,7 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
     )
   }
 
+  let eventLabelsQuerySucceeded = false
   try {
     const labelVidByProvider =
       await fetchDistinctVehicleCountByProviderAndLabel()
@@ -82,13 +92,24 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
       entityCountByProvider,
       labelVidByProvider,
       slugByTspId,
+      tspNameById,
     )
+    eventLabelsQuerySucceeded = true
   } catch (e) {
     console.warn(
       '[tspComparison] Influx distinct-vid event-label query failed; leaving Event labels / Alarms Info curated mock',
       e,
     )
   }
+
+  logDashboardBackendLiveVerification({
+    tsps: payload.tsps,
+    slugByTspId,
+    entityByProvider: entityCountByProvider,
+    metrics: payload.metrics,
+    entitiesQuerySucceeded,
+    eventLabelsQuerySucceeded,
+  })
 
   return payload
 }

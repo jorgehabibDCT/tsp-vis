@@ -24,7 +24,11 @@ export function ComparisonDashboard({
               <p className="comparison-dashboard__eyebrow">Dashboard</p>
               <h1 className="comparison-dashboard__title">TSP comparison</h1>
               <p className="comparison-dashboard__subtitle">
-                Side-by-side metrics across providers
+                Side-by-side metrics across selected providers.
+              </p>
+              <p className="comparison-dashboard__positioning-note">
+                Branded comparison matrix. Live bucket-backed metrics apply only where a
+                column maps to a validated provider; other rows use curated placeholders.
               </p>
             </div>
             {showMockBadge && (

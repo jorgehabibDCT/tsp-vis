@@ -1,6 +1,10 @@
 # TSP Comparison Dashboard
 
-Frontend at **repo root** (Vite/React → Vercel). API in **`server/`** (Express → Render). Dashboard JSON is **mock** unless Influx is configured on the API (then **Number of Entities** is live; other metrics stay mock).
+Frontend at **repo root** (Vite/React → Vercel). API in **`server/`** (Express → Render).
+
+**Product positioning:** The UI is a **branded comparison matrix** (fixed columns per TSP brand). **Live bucket-backed** metrics apply **only** to columns that have a **validated** Influx `provider` mapping in the API config; unmapped columns use **curated placeholders** for capability-style rows so the dashboard is not read as a full operational provider leaderboard. See `server/GRAFANA_PROVIDER_ALIGNMENT.md` for how Grafana-observed providers relate to these columns.
+
+Dashboard JSON is **mock** unless Influx is configured on the API; when Influx is set, **Number of Entities** and **Event labels / Alarms Info** (vehicle-coverage threshold) merge from Flux for **mapped** columns only; Integration %, data richness, and Risk Index remain curated unless extended later.
 
 ## Local
 
@@ -43,7 +47,7 @@ Vite inlines `VITE_*` at **build time**; change the var → **redeploy** the fro
 
 ### Influx (optional, API only)
 
-When **`INFLUX_HOST`**, **`INFLUX_TOKEN`**, **`INFLUX_ORG`**, and **`INFLUX_BUCKET`** are all set, the **Number of Entities (Vehicles or Assets)** metric is filled from Influx; everything else in the response stays mock. If Influx is unset or the query fails, the API returns the **full mock** payload (same shape as before).
+When **`INFLUX_HOST`**, **`INFLUX_TOKEN`**, **`INFLUX_ORG`**, and **`INFLUX_BUCKET`** are all set, **Number of Entities** and **Event labels / Alarms Info** merge from Influx for **mapped** TSP columns only; other metrics stay curated mock unless extended. If Influx is unset or a query fails, the API falls back to mock for that part of the payload (same overall shape).
 
 | Variable | Purpose |
 |----------|---------|

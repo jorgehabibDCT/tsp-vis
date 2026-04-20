@@ -28,7 +28,9 @@ export function eventLabelCoverageBandClass(pct: number): string {
 
 /**
  * Mean of child-label values that are real numeric coverage percentages (0–100).
- * Skips null, booleans, and pending placeholders — not included in the denominator.
+ * Skips null, booleans, and **0%** rows (ignored for the mean, same as the user’s
+ * rule for “non-zero” coverage). Only non-zero percentages contribute to the average
+ * used to color the parent-row fraction.
  */
 export function averageAvailableNumericLabelPercentages(
   cell: ExpandableCell,
@@ -36,7 +38,7 @@ export function averageAvailableNumericLabelPercentages(
   const nums: number[] = []
   for (const g of cell.groups) {
     for (const v of g.values) {
-      if (typeof v === 'number' && Number.isFinite(v)) {
+      if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
         nums.push(v)
       }
     }

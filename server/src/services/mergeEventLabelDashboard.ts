@@ -13,7 +13,6 @@ type MutableExpandableCell = {
   eventLabelRollup?: {
     supportedCount: number
     totalLabels: number
-    aggregatePct: number
   }
   groups: { groupId: string; values: number[] }[]
 }
@@ -107,16 +106,11 @@ export function mergeEventLabelVehicleCoverageIntoPayload(
 
     const totalLabels = flatPcts.length
     const supportedCount = flatPcts.filter((p) => p > 0).length
-    const aggregatePct =
-      totalLabels > 0
-        ? flatPcts.reduce((a, b) => a + b, 0) / totalLabels
-        : 0
 
     cell.summary = supportedCount
     cell.eventLabelRollup = {
       supportedCount,
       totalLabels,
-      aggregatePct,
     }
     cell.groups = groupsOut
   }

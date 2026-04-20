@@ -1,4 +1,9 @@
+import type { ReactNode } from 'react'
 import type { ExpandableMetricRow, Tsp } from '../types/dashboard'
+import {
+  averageAvailableNumericLabelPercentages,
+  eventLabelFractionBandClass,
+} from '../utils/eventLabelCoverageBands'
 import { formatInteger } from '../utils/format'
 import { ChevronButton } from './ChevronButton'
 
@@ -39,17 +44,31 @@ export function ExpandableMetricRow({
       {tsps.map((tsp) => {
         const cell = metric.values[tsp.id]
         const raw = cell?.summary ?? null
-        const eventLabelRollup =
+
+        let display: ReactNode
+        if (
           metric.id === 'metric-events-alarms' &&
           cell?.kind === 'expandable'
-            ? cell.eventLabelRollup
-            : undefined
-
-        let display: string
-        if (eventLabelRollup) {
-          const { supportedCount, totalLabels: tl, aggregatePct } =
-            eventLabelRollup
-          display = `${supportedCount}/${tl} · ${Math.round(aggregatePct)}%`
+        ) {
+          if (raw === null || Number.isNaN(raw)) {
+            display = '—'
+          } else {
+            const avg = averageAvailableNumericLabelPercentages(cell)
+            const frac =
+              cell.eventLabelRollup != null
+                ? `${cell.eventLabelRollup.supportedCount}/${cell.eventLabelRollup.totalLabels}`
+                : `${raw}/${totalLabels}`
+            const fracCls = eventLabelFractionBandClass(
+              avg !== null ? Math.round(avg) : null,
+            )
+            display = (
+              <span
+                className={`comparison-table__event-label-fraction ${fracCls}`}
+              >
+                {frac}
+              </span>
+            )
+          }
         } else if (isSupportMatrix) {
           display =
             raw === null || Number.isNaN(raw)
@@ -59,9 +78,11 @@ export function ExpandableMetricRow({
           display = formatInteger(raw)
         }
 
+        const isEventLabelRow =
+          metric.id === 'metric-events-alarms' && cell?.kind === 'expandable'
         const cls = isSupportMatrix
           ? `comparison-table__num comparison-table__num--support-summary${
-              eventLabelRollup ? ' comparison-table__num--event-label-summary' : ''
+              isEventLabelRow ? ' comparison-table__num--event-label-summary' : ''
             }`
           : 'comparison-table__num'
         return (

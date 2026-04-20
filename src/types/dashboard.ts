@@ -36,8 +36,6 @@ export type EventLabelCoverageRollup = {
   /** Labels with coverage_pct > 0 */
   supportedCount: number
   totalLabels: number
-  /** Mean of per-label coverage_pct across all matrix labels */
-  aggregatePct: number
 }
 
 /**

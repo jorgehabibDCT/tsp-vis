@@ -224,14 +224,13 @@ export function logDashboardBackendLiveVerification(params: {
           eventLabelRollup?: {
             supportedCount: number
             totalLabels: number
-            aggregatePct: number
           }
         }
       | undefined
     const eventSummary =
       evCell?.kind === 'expandable'
         ? evCell.eventLabelRollup != null
-          ? `${evCell.eventLabelRollup.supportedCount}/${evCell.eventLabelRollup.totalLabels}·${Math.round(evCell.eventLabelRollup.aggregatePct)}%`
+          ? `${evCell.eventLabelRollup.supportedCount}/${evCell.eventLabelRollup.totalLabels}`
           : evCell.summary
         : null
 

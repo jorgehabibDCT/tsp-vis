@@ -23,7 +23,11 @@ export function ScalarCellsRow({ metric, tsps }: ScalarCellsRowProps) {
   }
 
   return (
-    <tr className="comparison-table__row comparison-table__row--scalar">
+    <tr
+      className={`comparison-table__row comparison-table__row--scalar${
+        isRiskScore ? ' comparison-table__row--risk' : ''
+      }`}
+    >
       <th scope="row" className="comparison-table__label">
         {metric.label}
       </th>
@@ -32,7 +36,7 @@ export function ScalarCellsRow({ metric, tsps }: ScalarCellsRowProps) {
         const raw = cell?.value ?? null
         const text = metric.kind === 'percent' ? formatPercent(raw) : formatInteger(raw)
         const cls = isRiskScore
-          ? `comparison-table__num ${scoreClass(raw)}`
+          ? `comparison-table__num comparison-table__num--risk ${scoreClass(raw)}`
           : 'comparison-table__num'
         return (
           <td key={tsp.id} className={cls}>

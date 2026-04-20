@@ -44,8 +44,11 @@ export function ExpandableMetricRow({
             ? '—'
             : `${raw}/${totalLabels}`
           : formatInteger(raw)
+        const cls = isSupportMatrix
+          ? 'comparison-table__num comparison-table__num--support-summary'
+          : 'comparison-table__num'
         return (
-          <td key={tsp.id} className="comparison-table__num">
+          <td key={tsp.id} className={cls}>
             {display}
           </td>
         )

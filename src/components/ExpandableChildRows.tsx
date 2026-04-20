@@ -79,8 +79,15 @@ export function ExpandableChildRows({
                     ? '✓'
                     : '—'
                   : formatInteger(typeof v === 'number' ? v : null)
+                const cls = isSupportMatrix
+                  ? `comparison-table__num comparison-table__num--support ${
+                      v === true
+                        ? 'comparison-table__num--support-on'
+                        : 'comparison-table__num--support-off'
+                    }`
+                  : 'comparison-table__num'
                 return (
-                  <td key={tsp.id} className="comparison-table__num">
+                  <td key={tsp.id} className={cls}>
                     {text}
                   </td>
                 )

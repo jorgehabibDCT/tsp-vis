@@ -314,6 +314,13 @@ type ExpandableCell = {
   groups: { groupId: string; values: boolean[] }[]
 }
 
+/**
+ * Builds curated matrices for all `DASHBOARD_TSPS` ids. Pending-integration columns still get
+ * structural entries here for config parity; `finalizeDashboardPayload` in
+ * `server/src/utils/dashboardPayloadFinalize.ts` **must** strip those cells before the API
+ * responds — otherwise Cursor or partial merges can leave misleading curated values on pending
+ * columns.
+ */
 function buildProfileMatrix(
   groups: { id: string; labels: { id: string }[] }[],
   profileToLabels: Record<string, string[]>,

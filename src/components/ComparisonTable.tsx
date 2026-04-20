@@ -1,13 +1,30 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import type { Tsp } from '../types/dashboard'
 import type { TspComparisonResponse } from '../contracts/tspComparison'
+import { sortDashboardTsps } from '../utils/dashboardPayloadFinalize'
 import { MetricRow } from './MetricRow'
 
 type ComparisonTableProps = {
   model: TspComparisonResponse
 }
 
+function tspHeaderClassName(tsp: Tsp): string {
+  const base = 'comparison-table__tsp'
+  if (tsp.integrationStatus === 'pending_integration') {
+    return `${base} comparison-table__tsp--pending-col`
+  }
+  if (tsp.id.startsWith('tsp-csv-')) {
+    return `${base} comparison-table__tsp--csv-provider`
+  }
+  return `${base} comparison-table__tsp--branded-integrated`
+}
+
 export function ComparisonTable({ model }: ComparisonTableProps) {
   const [expandedMetricId, setExpandedMetricId] = useState<string | null>(null)
+  const tsps = useMemo(
+    () => sortDashboardTsps(model.tsps),
+    [model.tsps],
+  )
 
   function toggleExpandable(id: string) {
     setExpandedMetricId((prev) => (prev === id ? null : id))
@@ -25,8 +42,12 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
             <th scope="col" className="comparison-table__corner">
               Metric
             </th>
-            {model.tsps.map((tsp) => (
-              <th key={tsp.id} scope="col" className="comparison-table__tsp">
+            {tsps.map((tsp) => (
+              <th
+                key={tsp.id}
+                scope="col"
+                className={tspHeaderClassName(tsp)}
+              >
                 <div className="comparison-table__tsp-header">
                   <span className="comparison-table__tsp-logo-wrap" aria-hidden="true">
                     {tsp.logoUrl ? (
@@ -43,7 +64,10 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
                   </span>
                   <span className="comparison-table__tsp-name">{tsp.name}</span>
                   {tsp.integrationStatus === 'pending_integration' && (
-                    <span className="comparison-table__tsp-pending" title="Awaiting validated bucket provider mapping">
+                    <span
+                      className="comparison-table__tsp-pending"
+                      title="Listed for roadmap visibility; not yet in the live/defensible dataset — metric cells unavailable until provider mapping is validated."
+                    >
                       PENDING INTEGRATION
                     </span>
                   )}
@@ -57,7 +81,7 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
             <MetricRow
               key={metric.id}
               metric={metric}
-              tsps={model.tsps}
+              tsps={tsps}
               expanded={
                 metric.type === 'expandable' && expandedMetricId === metric.id
               }

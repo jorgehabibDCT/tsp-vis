@@ -9,8 +9,16 @@ import {
   logTspSlugMapVsInfluxProviders,
   logDashboardBackendLiveVerification,
 } from './dashboardInfluxDiagnostics.js'
+import {
+  finalizeDashboardPayload,
+  type DashboardPayload,
+} from '../utils/dashboardPayloadFinalize.js'
 
-type DashboardPayload = typeof mockTspComparisonResponse
+function cloneDashboardPayload(): DashboardPayload {
+  return JSON.parse(
+    JSON.stringify(mockTspComparisonResponse),
+  ) as DashboardPayload
+}
 
 function mergeEntityCountsIntoPayload(
   payload: DashboardPayload,
@@ -44,17 +52,19 @@ function mergeEntityCountsIntoPayload(
 /**
  * Assembles the dashboard matrix.
  * **Number of Entities** and **Event labels / Alarms Info** (for slug-mapped TSPs) use Influx
- * when configured; Integration %, data richness, and Risk Index remain curated mock.
+ * when configured; Integration %, data richness, and Risk Index remain curated mock for
+ * integrated columns. `finalizeDashboardPayload` sorts columns and clears all metrics for
+ * `pending_integration` TSPs (no placeholder data in the API response).
  */
 async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   if (!isInfluxConfigured()) {
-    return mockTspComparisonResponse
+    const payload = cloneDashboardPayload()
+    finalizeDashboardPayload(payload)
+    return payload
   }
 
   const slugByTspId = getTspProviderSlugMap()
-  const payload = JSON.parse(
-    JSON.stringify(mockTspComparisonResponse),
-  ) as DashboardPayload
+  const payload = cloneDashboardPayload()
 
   const tspNameById = Object.fromEntries(
     payload.tsps.map((t) => [t.id, t.name]),
@@ -101,6 +111,8 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
       e,
     )
   }
+
+  finalizeDashboardPayload(payload)
 
   logDashboardBackendLiveVerification({
     tsps: payload.tsps,

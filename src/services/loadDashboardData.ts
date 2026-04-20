@@ -2,6 +2,7 @@ import { fetchTspComparisonDashboard } from '../api/fetchTspComparisonDashboard'
 import { getApiBaseUrl } from '../api/index'
 import type { TspComparisonResponse } from '../contracts/tspComparison'
 import { mockTspComparisonResponse } from '../data/mockDashboard'
+import { finalizeDashboardPayload } from '../utils/dashboardPayloadFinalize'
 
 /** Brief delay so the loading UI is observable when using mock fallback. */
 const MOCK_LOAD_DELAY_MS = 160
@@ -40,9 +41,13 @@ export async function loadDashboardData(): Promise<LoadDashboardDataResult> {
 
   if (!base) {
     await delay(MOCK_LOAD_DELAY_MS)
+    const data = JSON.parse(
+      JSON.stringify(mockTspComparisonResponse),
+    ) as TspComparisonResponse
+    finalizeDashboardPayload(data)
     return {
       ok: true,
-      data: mockTspComparisonResponse,
+      data,
       source: 'mock',
     }
   }

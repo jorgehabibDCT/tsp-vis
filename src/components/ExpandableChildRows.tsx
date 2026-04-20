@@ -83,7 +83,9 @@ export function ExpandableChildRows({
                   ? `comparison-table__num comparison-table__num--support ${
                       v === true
                         ? 'comparison-table__num--support-on'
-                        : 'comparison-table__num--support-off'
+                        : v === null
+                          ? 'comparison-table__num--support-unavailable'
+                          : 'comparison-table__num--support-off'
                     }`
                   : 'comparison-table__num'
                 return (

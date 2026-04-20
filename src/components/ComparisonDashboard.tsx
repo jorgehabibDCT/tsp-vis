@@ -24,11 +24,28 @@ export function ComparisonDashboard({
               <p className="comparison-dashboard__eyebrow">Dashboard</p>
               <h1 className="comparison-dashboard__title">TSP comparison</h1>
               <p className="comparison-dashboard__subtitle">
-                Side-by-side metrics across selected providers.
+                Side-by-side metrics across selected providers. Columns are ordered
+                alphabetically within two bands: integrated providers first, then columns
+                pending integration.
+              </p>
+              <p className="comparison-dashboard__column-legend" aria-label="Column categories">
+                <span className="comparison-dashboard__legend-key comparison-dashboard__legend-key--branded" />
+                Branded, integrated
+                <span className="comparison-dashboard__legend-sep" aria-hidden="true">
+                  ·
+                </span>
+                <span className="comparison-dashboard__legend-key comparison-dashboard__legend-key--csv" />
+                CSV audit provider
+                <span className="comparison-dashboard__legend-sep" aria-hidden="true">
+                  ·
+                </span>
+                <span className="comparison-dashboard__legend-key comparison-dashboard__legend-key--pending" />
+                Pending integration (metrics unavailable)
               </p>
               <p className="comparison-dashboard__positioning-note">
-                Branded comparison matrix. Live bucket-backed metrics apply only where a
-                column maps to a validated provider; other rows use curated placeholders.
+                Integrated columns use live Influx where a provider slug is mapped; other
+                integrated cells use curated matrices. Pending columns appear in the matrix for
+                visibility but show no placeholder metrics until mapping is validated.
               </p>
             </div>
             {showMockBadge && (

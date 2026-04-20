@@ -16,12 +16,23 @@ import { INTEGRATION_UNDEFINED_PLACEHOLDER_VALUES } from '../config/integrationM
  * Keeps the matrix structure product expects; service may replace only entities with Influx.
  */
 export const mockTspComparisonResponse = {
-  tsps: DASHBOARD_TSPS.map(({ id, name, logoUrl, integrationStatus }) => ({
-    id,
-    name,
-    logoUrl,
-    integrationStatus,
-  })),
+  tsps: DASHBOARD_TSPS.map(
+    ({
+      id,
+      name,
+      logoUrl,
+      integrationStatus,
+      providerSlug,
+      providerMappingConfidence,
+    }) => ({
+      id,
+      name,
+      logoUrl,
+      integrationStatus,
+      providerSlug,
+      providerMappingConfidence,
+    }),
+  ),
   metrics: [
     {
       id: 'metric-entities',

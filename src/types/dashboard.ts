@@ -10,12 +10,21 @@ export type TspId = string
 
 export type TspIntegrationStatus = 'pending_integration' | 'integrated'
 
+/** Bucket slug mapping stance (see `server/src/config/dashboardMatrixConfig.ts`). */
+export type ProviderMappingConfidence =
+  | 'confident'
+  | 'plausible_pending'
+  | 'unmapped'
+
 export type Tsp = {
   id: TspId
   name: string
   logoUrl?: string | null
   /** Branded columns awaiting bucket mapping vs CSV-imported provider columns. */
   integrationStatus?: TspIntegrationStatus
+  /** Influx `provider` tag when mapped; null when unmapped. */
+  providerSlug?: string | null
+  providerMappingConfidence?: ProviderMappingConfidence
 }
 
 export type ScalarCell = {

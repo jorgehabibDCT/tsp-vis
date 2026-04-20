@@ -1,6 +1,7 @@
 import type { TspComparisonResponse } from '../contracts/tspComparison'
 import type { DashboardDataSource } from '../services/loadDashboardData'
 import { ComparisonTable } from './ComparisonTable'
+import { ProviderOpportunityPanel } from './ProviderOpportunityPanel'
 import './Dashboard.css'
 
 type ComparisonDashboardProps = {
@@ -55,6 +56,7 @@ export function ComparisonDashboard({
         </div>
       </header>
       <main className="comparison-dashboard__main">
+        <ProviderOpportunityPanel model={model} />
         <ComparisonTable model={model} />
       </main>
     </div>

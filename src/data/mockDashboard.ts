@@ -1,10 +1,14 @@
 import type { TspComparisonResponse } from '../contracts/tspComparison'
 import { MOCK_DASHBOARD_TSPS } from './dashboardTsps'
+import { TSP_PROVIDER_META } from './tspProviderMeta'
 
 type MatrixLabel = { id: string; name: string }
 type MatrixGroup = { id: string; title: string; labels: MatrixLabel[] }
 
-const tsps = MOCK_DASHBOARD_TSPS
+const tsps = MOCK_DASHBOARD_TSPS.map((t) => ({
+  ...t,
+  ...TSP_PROVIDER_META[t.id],
+}))
 
 const colCount = tsps.length
 

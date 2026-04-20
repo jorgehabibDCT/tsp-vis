@@ -54,20 +54,34 @@ export function ExpandableMetricRow({
             display = '—'
           } else {
             const avg = averageAvailableNumericLabelPercentages(cell)
-            const frac =
-              cell.eventLabelRollup != null
-                ? `${cell.eventLabelRollup.supportedCount}/${cell.eventLabelRollup.totalLabels}`
-                : `${raw}/${totalLabels}`
-            const fracCls = eventLabelFractionBandClass(
-              avg !== null ? Math.round(avg) : null,
-            )
-            display = (
-              <span
-                className={`comparison-table__event-label-fraction ${fracCls}`}
-              >
-                {frac}
-              </span>
-            )
+            const roundedAvg =
+              avg !== null && Number.isFinite(avg) ? Math.round(avg) : null
+            const fracCls = eventLabelFractionBandClass(roundedAvg)
+
+            const rollup = cell.eventLabelRollup
+            let frac: string | null = null
+            if (
+              rollup != null &&
+              Number.isFinite(rollup.supportedCount) &&
+              Number.isFinite(rollup.totalLabels) &&
+              rollup.totalLabels > 0
+            ) {
+              frac = `${rollup.supportedCount}/${rollup.totalLabels}`
+            } else if (Number.isFinite(raw) && totalLabels > 0) {
+              frac = `${raw}/${totalLabels}`
+            }
+
+            if (frac === null) {
+              display = '—'
+            } else {
+              display = (
+                <span
+                  className={`comparison-table__event-label-fraction ${fracCls}`}
+                >
+                  {frac}
+                </span>
+              )
+            }
           }
         } else if (isSupportMatrix) {
           display =

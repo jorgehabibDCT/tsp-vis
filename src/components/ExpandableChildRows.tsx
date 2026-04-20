@@ -89,6 +89,16 @@ export function ExpandableChildRows({
                     )
                   }
                   if (typeof v === 'number') {
+                    if (!Number.isFinite(v)) {
+                      return (
+                        <td
+                          key={tsp.id}
+                          className="comparison-table__num comparison-table__num--ev-label comparison-table__num--label-cov-0"
+                        >
+                          —
+                        </td>
+                      )
+                    }
                     if (v === 0) {
                       return (
                         <td

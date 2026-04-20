@@ -36,7 +36,7 @@ export function averageAvailableNumericLabelPercentages(
   const nums: number[] = []
   for (const g of cell.groups) {
     for (const v of g.values) {
-      if (typeof v === 'number') {
+      if (typeof v === 'number' && Number.isFinite(v)) {
         nums.push(v)
       }
     }
@@ -44,7 +44,8 @@ export function averageAvailableNumericLabelPercentages(
   if (nums.length === 0) {
     return null
   }
-  return nums.reduce((a, b) => a + b, 0) / nums.length
+  const mean = nums.reduce((a, b) => a + b, 0) / nums.length
+  return Number.isFinite(mean) ? mean : null
 }
 
 /**
@@ -54,10 +55,10 @@ export function averageAvailableNumericLabelPercentages(
 export function eventLabelFractionBandClass(
   roundedAvgPct: number | null,
 ): string {
-  if (roundedAvgPct === null) {
+  if (roundedAvgPct === null || !Number.isFinite(roundedAvgPct)) {
     return 'comparison-table__event-frac-neutral'
   }
-  if (!Number.isFinite(roundedAvgPct) || roundedAvgPct <= 0) {
+  if (roundedAvgPct <= 0) {
     return 'comparison-table__event-frac-cov-0'
   }
   if (roundedAvgPct <= 16) {

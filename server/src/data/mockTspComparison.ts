@@ -8,8 +8,8 @@ import {
   CURATED_ENTITY_MOCK_VALUES,
   CURATED_EVENT_SUPPORT_VALUES,
   CURATED_RISK_INDEX_VALUES,
-  INTEGRATION_UNDEFINED_PLACEHOLDER_VALUES,
 } from '../config/dashboardTruthSources.js'
+import { INTEGRATION_UNDEFINED_PLACEHOLDER_VALUES } from '../config/integrationMetricSemantics.js'
 
 /**
  * Backend-owned mock for `GET /api/dashboard/tsp-comparison`.

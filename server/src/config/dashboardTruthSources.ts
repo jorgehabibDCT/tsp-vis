@@ -3,6 +3,7 @@ import {
   DATA_RICHNESS_GROUPS,
   EVENT_ALARM_GROUPS,
 } from './dashboardMatrixConfig.js'
+import { INTEGRATION_FORMULA_PROPOSAL } from './integrationMetricSemantics.js'
 
 export type DashboardRowSourceType =
   | 'live_influx'
@@ -27,9 +28,9 @@ export const DASHBOARD_ROW_SEMANTICS: Record<string, DashboardRowSemantics> = {
   },
   'metric-integration': {
     sourceType: 'derived_score',
-    meaning: 'Integration coverage percentage per TSP.',
+    meaning: INTEGRATION_FORMULA_PROPOSAL.meaning,
     accuracyNote:
-      'Formula is not yet defined; response currently publishes null placeholders.',
+      `Formula proposal defined but not computable yet: ${INTEGRATION_FORMULA_PROPOSAL.blockingReason}`,
   },
   'metric-events-alarms': {
     sourceType: 'curated_matrix',
@@ -300,10 +301,3 @@ export const CURATED_ENTITY_MOCK_VALUES: Record<string, ScalarCell> =
       { kind: 'scalar', value: v.entityMock },
     ]),
   )
-
-/**
- * Explicit placeholder: integration formula is not approved yet.
- * We intentionally publish nulls instead of synthetic percentages.
- */
-export const INTEGRATION_UNDEFINED_PLACEHOLDER_VALUES: Record<string, ScalarCell> =
-  Object.fromEntries(DASHBOARD_TSPS.map((tsp) => [tsp.id, { kind: 'scalar', value: null }]))

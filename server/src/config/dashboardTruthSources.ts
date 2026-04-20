@@ -4,6 +4,10 @@ import {
   EVENT_ALARM_GROUPS,
 } from './dashboardMatrixConfig.js'
 import { INTEGRATION_FORMULA_PROPOSAL } from './integrationMetricSemantics.js'
+import {
+  RISK_INDEX_FORMULA_PROPOSAL,
+  RISK_INDEX_PLACEHOLDER_SEMANTICS,
+} from './riskIndexMetricSemantics.js'
 
 export type DashboardRowSourceType =
   | 'live_influx'
@@ -44,9 +48,9 @@ export const DASHBOARD_ROW_SEMANTICS: Record<string, DashboardRowSemantics> = {
   },
   'metric-risk-index': {
     sourceType: 'derived_score',
-    meaning: 'Curated enablement score summarizing risk-index readiness by TSP.',
+    meaning: RISK_INDEX_FORMULA_PROPOSAL.meaning,
     accuracyNote:
-      'Current values are curated placeholders until a formal scoring formula is approved.',
+      `Formula proposal defined but not computable yet: ${RISK_INDEX_FORMULA_PROPOSAL.blockingReason} Current values use ${RISK_INDEX_PLACEHOLDER_SEMANTICS.placeholderKind}.`,
   },
 }
 

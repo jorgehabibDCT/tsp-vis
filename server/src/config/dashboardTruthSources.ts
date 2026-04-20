@@ -4,10 +4,6 @@ import {
   EVENT_ALARM_GROUPS,
 } from './dashboardMatrixConfig.js'
 import { INTEGRATION_FORMULA_PROPOSAL } from './integrationMetricSemantics.js'
-import {
-  RISK_INDEX_FORMULA_PROPOSAL,
-  RISK_INDEX_PLACEHOLDER_SEMANTICS,
-} from './riskIndexMetricSemantics.js'
 
 export type DashboardRowSourceType =
   | 'live_influx'
@@ -70,9 +66,10 @@ export const DASHBOARD_ROW_SEMANTICS: Record<string, DashboardRowSemantics> = {
   },
   'metric-risk-index': {
     sourceType: 'derived_score',
-    meaning: RISK_INDEX_FORMULA_PROPOSAL.meaning,
+    meaning:
+      'Provider Opportunity Score (0–100): blend of event label breadth, live label-depth coverage, data-richness points, and entity scale vs the largest integrated fleet; multiplied by mapping confidence (confident = 1, plausible_pending = 0.85).',
     accuracyNote:
-      `Formula proposal defined but not computable yet: ${RISK_INDEX_FORMULA_PROPOSAL.blockingReason} Current values use ${RISK_INDEX_PLACEHOLDER_SEMANTICS.placeholderKind}.`,
+      'Stable metric id `metric-risk-index`. Unmapped confidence, pending columns, missing entities, or missing live label-depth coverage yield null (no fabricated score).',
   },
 }
 
@@ -361,14 +358,6 @@ export const CURATED_DATA_RICHNESS_VALUES = buildProfileMatrix(
     Object.entries(CURATED_TRUTH_BY_TSP).map(([tspId, v]) => [tspId, v.dataProfile]),
   ),
 )
-
-export const CURATED_RISK_INDEX_VALUES: Record<string, ScalarCell> =
-  Object.fromEntries(
-    Object.entries(CURATED_TRUTH_BY_TSP).map(([tspId, v]) => [
-      tspId,
-      { kind: 'scalar', value: v.riskIndex },
-    ]),
-  )
 
 export const CURATED_ENTITY_MOCK_VALUES: Record<string, ScalarCell> =
   Object.fromEntries(

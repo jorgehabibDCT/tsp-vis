@@ -57,8 +57,6 @@ const eventStrength = padScalarPattern([84, 67, 72, 58, 63, 60, 74, 70, 82, 55, 
 const dataStrength = padScalarPattern([92, 78, 81, 75, 72, 76, 88, 84, 90, 69, 87, 73, 68, 94, 70, 66, 80, 64, 85], colCount)
 const integrationValues = padScalarPattern([89, 74, 77, 69, 71, 73, 82, 79, 86, 65, 84, 70, 68, 90, 72, 67, 76, 63, 80], colCount)
 const entityValues = padScalarPattern([2310, 1280, 1540, 980, 1110, 1235, 2015, 1780, 2490, 890, 2150, 1190, 1040, 2670, 1155, 940, 1395, 760, 1860], colCount)
-const riskIndexValues = padScalarPattern([73, 58, 65, 52, 56, 60, 71, 68, 76, 49, 74, 57, 53, 81, 55, 50, 63, 47, 70], colCount)
-
 function buildScalarRow(values: number[]) {
   return Object.fromEntries(
     tsps.map((tsp, index) => [tsp.id, { kind: 'scalar' as const, value: values[index] ?? 0 }]),
@@ -128,10 +126,12 @@ export const mockTspComparisonResponse: TspComparisonResponse = {
     },
     {
       id: 'metric-risk-index',
-      label: 'Risk Index Enablement',
+      label: 'Provider Opportunity Score',
       type: 'scalar',
       kind: 'score',
-      values: buildScalarRow(riskIndexValues),
+      values: Object.fromEntries(
+        tsps.map((t) => [t.id, { kind: 'scalar' as const, value: null as null }]),
+      ),
     },
   ],
 }

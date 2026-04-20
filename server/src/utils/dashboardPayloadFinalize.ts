@@ -1,4 +1,5 @@
 import type { mockTspComparisonResponse } from '../data/mockTspComparison.js'
+import { applyOpportunityScoresToPayload } from './providerOpportunityScore.js'
 
 export type DashboardPayload = typeof mockTspComparisonResponse
 
@@ -92,4 +93,5 @@ export function finalizeDashboardPayload(payload: DashboardPayload): void {
   const mutable = payload as unknown as MutableDashboardPayload
   mutable.tsps = sortDashboardTsps(mutable.tsps)
   applyPendingIntegrationUnavailableState(payload)
+  applyOpportunityScoresToPayload(payload)
 }

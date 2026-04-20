@@ -34,6 +34,7 @@ export const EVENT_ALARM_GROUPS: MatrixGroup[] = [
   {
     id: 'grp-tracking-telematics',
     title: 'Tracking / Telematics',
+    // Row IDs mirror `label_type` codes observed in `server/INFLUX_BUCKET_AUDIT.md` (pegasus256).
     labels: [
       'trckpnt',
       'prdtst',
@@ -43,7 +44,6 @@ export const EVENT_ALARM_GROUPS: MatrixGroup[] = [
       'pwrloss',
       'pwrrstd',
       'lwbatt',
-      'stt',
       'stp',
     ].map((id) => ({ id, name: id })),
   },
@@ -99,6 +99,7 @@ export const DATA_RICHNESS_GROUPS: MatrixGroup[] = [
   {
     id: 'grp-data-richness',
     title: 'Event Data Fields / Data Richness',
+    // Support flags for curated matrix are defined in `DATA_RICHNESS_FIELD_SOURCES` (audit: hdop, dev_dist, dev_idle; GPS/accel unsupported in window).
     labels: [
       { id: 'gps-satellites', name: 'GPS Satellites' },
       { id: 'dop', name: 'DOP' },

@@ -1,0 +1,270 @@
+[
+  {
+    "key": "45thon",
+    "count": 1
+  },
+  {
+    "key": "aggdrvcrv",
+    "count": 71
+  },
+  {
+    "key": "aggr",
+    "count": 396
+  },
+  {
+    "key": "battchg",
+    "count": 2
+  },
+  {
+    "key": "coldet",
+    "count": 40
+  },
+  {
+    "key": "cooltmpexc",
+    "count": 5
+  },
+  {
+    "key": "diagmsg",
+    "count": 3
+  },
+  {
+    "key": "dvon",
+    "count": 331
+  },
+  {
+    "key": "ftgalarm",
+    "count": 1
+  },
+  {
+    "key": "ftgcamblck",
+    "count": 8
+  },
+  {
+    "key": "ftgcamphon",
+    "count": 17
+  },
+  {
+    "key": "ftgcamphow",
+    "count": 10
+  },
+  {
+    "key": "ftgcamsmok",
+    "count": 3
+  },
+  {
+    "key": "ftgcamsmow",
+    "count": 4
+  },
+  {
+    "key": "ftgdistrct",
+    "count": 12
+  },
+  {
+    "key": "ftgdistrcw",
+    "count": 19
+  },
+  {
+    "key": "ftgfoodrnk",
+    "count": 3
+  },
+  {
+    "key": "ftgfoodrnw",
+    "count": 5
+  },
+  {
+    "key": "ftgnosblt",
+    "count": 5
+  },
+  {
+    "key": "ftgnosbltw",
+    "count": 3
+  },
+  {
+    "key": "ftgphonend",
+    "count": 2
+  },
+  {
+    "key": "ftgwarning",
+    "count": 8
+  },
+  {
+    "key": "gpson",
+    "count": 17
+  },
+  {
+    "key": "gtvgf",
+    "count": 10
+  },
+  {
+    "key": "gtvgn",
+    "count": 15
+  },
+  {
+    "key": "idl",
+    "count": 575
+  },
+  {
+    "key": "idlend",
+    "count": 512
+  },
+  {
+    "key": "ignoff",
+    "count": 2205
+  },
+  {
+    "key": "ignon",
+    "count": 2781
+  },
+  {
+    "key": "in1off",
+    "count": 2
+  },
+  {
+    "key": "in1on",
+    "count": 2
+  },
+  {
+    "key": "in2off",
+    "count": 1
+  },
+  {
+    "key": "in2on",
+    "count": 1
+  },
+  {
+    "key": "jamdet",
+    "count": 10
+  },
+  {
+    "key": "lwbatt",
+    "count": 38
+  },
+  {
+    "key": "mblyhdwrn",
+    "count": 1
+  },
+  {
+    "key": "mov",
+    "count": 691
+  },
+  {
+    "key": "negac",
+    "count": 1204
+  },
+  {
+    "key": "nogps",
+    "count": 1
+  },
+  {
+    "key": "overrpm",
+    "count": 328
+  },
+  {
+    "key": "panic",
+    "count": 3
+  },
+  {
+    "key": "posac",
+    "count": 643
+  },
+  {
+    "key": "position",
+    "count": 843
+  },
+  {
+    "key": "prdcscls",
+    "count": 2
+  },
+  {
+    "key": "prdcsopn",
+    "count": 7
+  },
+  {
+    "key": "prdtst",
+    "count": 1297
+  },
+  {
+    "key": "pwrloss",
+    "count": 66
+  },
+  {
+    "key": "pwroff",
+    "count": 2
+  },
+  {
+    "key": "pwrrstd",
+    "count": 246
+  },
+  {
+    "key": "recovery",
+    "count": 8
+  },
+  {
+    "key": "rlrdxing",
+    "count": 1
+  },
+  {
+    "key": "rstnoact",
+    "count": 9
+  },
+  {
+    "key": "rstnonet",
+    "count": 1
+  },
+  {
+    "key": "slpon",
+    "count": 9
+  },
+  {
+    "key": "spd",
+    "count": 866
+  },
+  {
+    "key": "spdend",
+    "count": 5
+  },
+  {
+    "key": "stp",
+    "count": 1651
+  },
+  {
+    "key": "stpchrg",
+    "count": 36
+  },
+  {
+    "key": "tow",
+    "count": 289
+  },
+  {
+    "key": "towend",
+    "count": 91
+  },
+  {
+    "key": "trckpnt",
+    "count": 35775
+  },
+  {
+    "key": "tripend",
+    "count": 651
+  },
+  {
+    "key": "tripstrt",
+    "count": 711
+  },
+  {
+    "key": "vbr",
+    "count": 3
+  },
+  {
+    "key": "ver",
+    "count": 13
+  },
+  {
+    "key": "wkpign",
+    "count": 1
+  },
+  {
+    "key": "wkptmr",
+    "count": 5
+  }
+]

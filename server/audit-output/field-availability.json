@@ -1,0 +1,187 @@
+[
+  {
+    "metricIntent": "GPS Satellites",
+    "candidateFields": [
+      "satellites",
+      "gps_satellites",
+      "sats",
+      "nsat"
+    ],
+    "byField": {
+      "satellites": {
+        "found": false,
+        "measurements": []
+      },
+      "gps_satellites": {
+        "found": false,
+        "measurements": []
+      },
+      "sats": {
+        "found": false,
+        "measurements": []
+      },
+      "nsat": {
+        "found": false,
+        "measurements": []
+      }
+    }
+  },
+  {
+    "metricIntent": "DOP",
+    "candidateFields": [
+      "dop",
+      "pdop",
+      "hdop",
+      "vdop"
+    ],
+    "byField": {
+      "dop": {
+        "found": false,
+        "measurements": []
+      },
+      "pdop": {
+        "found": false,
+        "measurements": []
+      },
+      "hdop": {
+        "found": true,
+        "measurements": [
+          {
+            "key": "posted_speed_limits",
+            "count": 83533
+          },
+          {
+            "key": "providers",
+            "count": 27765
+          }
+        ]
+      },
+      "vdop": {
+        "found": false,
+        "measurements": []
+      }
+    }
+  },
+  {
+    "metricIntent": "Instant acceleration",
+    "candidateFields": [
+      "instant_acceleration",
+      "acceleration",
+      "accel",
+      "imu_accel_x",
+      "imu_accel_y",
+      "imu_accel_z"
+    ],
+    "byField": {
+      "instant_acceleration": {
+        "found": false,
+        "measurements": []
+      },
+      "acceleration": {
+        "found": false,
+        "measurements": []
+      },
+      "accel": {
+        "found": false,
+        "measurements": []
+      },
+      "imu_accel_x": {
+        "found": false,
+        "measurements": []
+      },
+      "imu_accel_y": {
+        "found": false,
+        "measurements": []
+      },
+      "imu_accel_z": {
+        "found": false,
+        "measurements": []
+      }
+    }
+  },
+  {
+    "metricIntent": "Engine odometer",
+    "candidateFields": [
+      "engine_odometer",
+      "odometer",
+      "ecu_odometer",
+      "dev_dist",
+      "dev_dist__km"
+    ],
+    "byField": {
+      "engine_odometer": {
+        "found": false,
+        "measurements": []
+      },
+      "odometer": {
+        "found": false,
+        "measurements": []
+      },
+      "ecu_odometer": {
+        "found": false,
+        "measurements": []
+      },
+      "dev_dist": {
+        "found": true,
+        "measurements": [
+          {
+            "key": "event",
+            "count": 235967
+          },
+          {
+            "key": "posted_speed_limits",
+            "count": 226686
+          },
+          {
+            "key": "providers",
+            "count": 69410
+          }
+        ]
+      },
+      "dev_dist__km": {
+        "found": false,
+        "measurements": []
+      }
+    }
+  },
+  {
+    "metricIntent": "Engine hourmeter",
+    "candidateFields": [
+      "engine_hourmeter",
+      "hourmeter",
+      "engine_hours",
+      "dev_idle"
+    ],
+    "byField": {
+      "engine_hourmeter": {
+        "found": false,
+        "measurements": []
+      },
+      "hourmeter": {
+        "found": false,
+        "measurements": []
+      },
+      "engine_hours": {
+        "found": false,
+        "measurements": []
+      },
+      "dev_idle": {
+        "found": true,
+        "measurements": [
+          {
+            "key": "event",
+            "count": 235103
+          },
+          {
+            "key": "posted_speed_limits",
+            "count": 200505
+          },
+          {
+            "key": "providers",
+            "count": 66670
+          }
+        ]
+      }
+    }
+  }
+]

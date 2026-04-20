@@ -24,6 +24,24 @@ export type DashboardRowSemantics = {
  * Source-of-truth semantics per top-level dashboard row.
  * This is intentionally backend-owned and audit-oriented.
  */
+
+/** Internal mapping: dashboard richness row id → audit stance (`server/INFLUX_BUCKET_AUDIT.md`). */
+export const DATA_RICHNESS_FIELD_SOURCES: Record<
+  string,
+  | { kind: 'unsupported' }
+  | { kind: 'proxy'; bucketField: string; measurementHint?: string }
+> = {
+  'gps-satellites': { kind: 'unsupported' },
+  dop: {
+    kind: 'proxy',
+    bucketField: 'hdop',
+    measurementHint: 'posted_speed_limits, providers',
+  },
+  'instant-acceleration': { kind: 'unsupported' },
+  'engine-odometer': { kind: 'proxy', bucketField: 'dev_dist' },
+  'engine-hourmeter': { kind: 'proxy', bucketField: 'dev_idle' },
+}
+
 export const DASHBOARD_ROW_SEMANTICS: Record<string, DashboardRowSemantics> = {
   'metric-entities': {
     sourceType: 'live_influx',
@@ -39,12 +57,14 @@ export const DASHBOARD_ROW_SEMANTICS: Record<string, DashboardRowSemantics> = {
   'metric-events-alarms': {
     sourceType: 'curated_matrix',
     meaning:
-      'Capability/support matrix for event/alarm label families (presence, not frequency).',
+      'Curated per-TSP capability matrix of label codes (machine ids in rows — presence, not frequency). Anchored to pegasus256 label inventory in the Influx audit.',
   },
   'metric-data-richness': {
     sourceType: 'curated_matrix',
     meaning:
-      'Capability/support matrix for selected event data richness fields (presence, not frequency).',
+      'Curated per-TSP capability matrix for selected richness dimensions (presence, not frequency).',
+    accuracyNote:
+      'Bucket-backed semantics: DOP available as hdop (proxy); engine odometer/hourmeter as dev_dist / dev_idle (proxies). GPS satellites and instant acceleration not observed in the audit window — matrix cells remain unsupported until fields appear.',
   },
   'metric-risk-index': {
     sourceType: 'derived_score',
@@ -59,8 +79,8 @@ type DataProfileId = 'data_full' | 'data_standard' | 'data_core'
 
 const EVENT_PROFILE_LABELS: Record<EventProfileId, string[]> = {
   event_full: EVENT_ALARM_GROUPS.flatMap((g) => g.labels.map((l) => l.id)),
+  /** Strong overlap with high-volume `label_type` codes in `server/INFLUX_BUCKET_AUDIT.md`. */
   event_standard: [
-    // Tracking / Telematics
     'trckpnt',
     'prdtst',
     'ignon',
@@ -69,7 +89,7 @@ const EVENT_PROFILE_LABELS: Record<EventProfileId, string[]> = {
     'pwrloss',
     'pwrrstd',
     'lwbatt',
-    // Driving
+    'stp',
     'spd',
     'spdend',
     'idl',
@@ -78,14 +98,17 @@ const EVENT_PROFILE_LABELS: Record<EventProfileId, string[]> = {
     'negac',
     'aggr',
     'aggdrvcrv',
-    'crash',
-    // ADAS / DMS
-    'mblypdfcw',
+    'coldet',
+    'mblyhdwrn',
     'mblyfcw',
     'adastlgt',
     'ftgwarning',
+    'ftgalarm',
     'ftgdistrct',
+    'ftgcamphon',
     'ftgnosblt',
+    'ftgcamblck',
+    'ftgfoodrnk',
   ],
   event_core: [
     'trckpnt',
@@ -94,24 +117,30 @@ const EVENT_PROFILE_LABELS: Record<EventProfileId, string[]> = {
     'pwrloss',
     'pwrrstd',
     'lwbatt',
+    'stp',
     'spd',
-    'spdend',
     'idl',
     'idlend',
     'posac',
     'negac',
     'aggr',
     'aggdrvcrv',
-    'crash',
+    'coldet',
     'ftgwarning',
+    'ftgalarm',
+    'ftgdistrct',
+    'ftgcamphon',
+    'ftgcamblck',
+    'ftgfoodrnk',
   ],
-  event_min: ['trckpnt', 'ignon', 'ignoff', 'spd', 'idl', 'aggr'],
+  event_min: ['trckpnt', 'ignon', 'ignoff', 'stp', 'spd', 'idl', 'aggr'],
 }
 
 const DATA_PROFILE_LABELS: Record<DataProfileId, string[]> = {
-  data_full: ['gps-satellites', 'dop', 'instant-acceleration', 'engine-odometer', 'engine-hourmeter'],
-  data_standard: ['gps-satellites', 'dop', 'instant-acceleration', 'engine-odometer'],
-  data_core: ['gps-satellites', 'dop', 'engine-odometer'],
+  /** Proxied richness only; see `DATA_RICHNESS_FIELD_SOURCES`. */
+  data_full: ['dop', 'engine-odometer', 'engine-hourmeter'],
+  data_standard: ['dop', 'engine-odometer'],
+  data_core: ['engine-odometer'],
 }
 
 type TspCuratedTruth = {

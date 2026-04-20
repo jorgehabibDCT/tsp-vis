@@ -29,7 +29,7 @@ const eventGroups: MatrixGroup[] = [
   {
     id: 'grp-tracking-telematics',
     title: 'Tracking / Telematics',
-    labels: ['trckpnt', 'prdtst', 'ignon', 'ignoff', 'panic', 'pwrloss', 'pwrrstd', 'lwbatt', 'stt', 'stp'].map((id) => ({ id, name: id })),
+    labels: ['trckpnt', 'prdtst', 'ignon', 'ignoff', 'panic', 'pwrloss', 'pwrrstd', 'lwbatt', 'stp'].map((id) => ({ id, name: id })),
   },
   {
     id: 'grp-driving-behavior',

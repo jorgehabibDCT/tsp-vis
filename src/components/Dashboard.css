@@ -194,6 +194,18 @@
   color: #31405f;
 }
 
+.comparison-table__tsp-pending {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+  text-align: center;
+}
+
 /* tbody: metric label column — sticky left for horizontal scan */
 .comparison-table tbody th:first-child {
   position: sticky;

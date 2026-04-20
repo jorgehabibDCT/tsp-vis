@@ -35,7 +35,13 @@ These CSV rows **support** slugs already marked **confident** in `dashboardMatri
 
 **INTEGRADORA DE SERVICIOS DE TRANSPORTACION XIHUTEC SA DE CV** (`sitrack`): not mapped to **TTC TOTAL TRACKING CENTER** — acronym/branding link to that legal name is **not** strong enough for a slug assignment.
 
+## Dashboard columns (post–CSV integration)
+
+- **Branded matrix (19):** original columns; twelve remain **PENDING INTEGRATION** in the UI until a validated `provider` slug exists (`integrationStatus: pending_integration`).
+- **CSV bucket columns (16):** added as `tsp-csv-*` columns with `properties_tag` slugs from the audit file (`integrationStatus: integrated`). See `dashboardMatrixConfig.ts` `CSV_ONLY_BUCKET_COLUMNS`.
+
 ## Summary
 
 - **New** mapping from this CSV pass: **TECNO-GPS** → `telematics_advance` (**plausible_pending** only).
 - **Confident** count unchanged (six columns). One column moved from **unmapped** to **plausible_pending**; twelve columns remain **unmapped**.
+- **CSV-only providers** are represented as **sixteen** additional matrix columns with confident bucket slugs.

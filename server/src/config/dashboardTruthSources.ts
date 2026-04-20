@@ -152,6 +152,39 @@ type TspCuratedTruth = {
   entityMock: number
 }
 
+const CSV_BUCKET_TSP_IDS = [
+  'tsp-csv-arrendamex',
+  'tsp-csv-fleetup',
+  'tsp-csv-ftr',
+  'tsp-csv-geotrucks',
+  'tsp-csv-innovalinks',
+  'tsp-csv-logitrack',
+  'tsp-csv-lojack',
+  'tsp-csv-motum',
+  'tsp-csv-numaris',
+  'tsp-csv-queclink',
+  'tsp-csv-rec',
+  'tsp-csv-resser',
+  'tsp-csv-samsara',
+  'tsp-csv-sitrack',
+  'tsp-csv-traffilog',
+  'tsp-csv-ubicamovil',
+] as const
+
+function csvBucketImportedTspCuratedDefaults(): Record<string, TspCuratedTruth> {
+  const out: Record<string, TspCuratedTruth> = {}
+  for (let i = 0; i < CSV_BUCKET_TSP_IDS.length; i++) {
+    const id = CSV_BUCKET_TSP_IDS[i]
+    out[id] = {
+      eventProfile: 'event_min',
+      dataProfile: 'data_core',
+      riskIndex: 55,
+      entityMock: 1000 + i * 41,
+    }
+  }
+  return out
+}
+
 /**
  * Curated support/score source of truth by TSP.
  * Explicit and easy to audit/edit.
@@ -271,6 +304,7 @@ export const CURATED_TRUTH_BY_TSP: Record<string, TspCuratedTruth> = {
     riskIndex: 70,
     entityMock: 1860,
   },
+  ...csvBucketImportedTspCuratedDefaults(),
 }
 
 type ScalarCell = { kind: 'scalar'; value: number | null }

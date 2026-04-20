@@ -8,10 +8,14 @@
  */
 export type TspId = string
 
+export type TspIntegrationStatus = 'pending_integration' | 'integrated'
+
 export type Tsp = {
   id: TspId
   name: string
   logoUrl?: string | null
+  /** Branded columns awaiting bucket mapping vs CSV-imported provider columns. */
+  integrationStatus?: TspIntegrationStatus
 }
 
 export type ScalarCell = {

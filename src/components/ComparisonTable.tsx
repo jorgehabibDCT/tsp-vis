@@ -42,6 +42,11 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
                     )}
                   </span>
                   <span className="comparison-table__tsp-name">{tsp.name}</span>
+                  {tsp.integrationStatus === 'pending_integration' && (
+                    <span className="comparison-table__tsp-pending" title="Awaiting validated bucket provider mapping">
+                      PENDING INTEGRATION
+                    </span>
+                  )}
                 </div>
               </th>
             ))}

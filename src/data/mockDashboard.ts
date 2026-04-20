@@ -1,29 +1,12 @@
 import type { TspComparisonResponse } from '../contracts/tspComparison'
+import { MOCK_DASHBOARD_TSPS } from './dashboardTsps'
 
 type MatrixLabel = { id: string; name: string }
 type MatrixGroup = { id: string; title: string; labels: MatrixLabel[] }
 
-const tsps = [
-  { id: 'tsp-santrack-internacional', name: 'SANTRACK INTERNACIONAL', logoUrl: 'https://gruposantrack.com/wp-content/uploads/2019/07/Santrak-texto-gde.png' },
-  { id: 'tsp-tecnologistik-occidente', name: 'TECNOLOGISTIK DE OCCIDENTE (INFO-TRAX)', logoUrl: 'https://www.info-trax.com/lp-infotrax-deteccion-de-jammer/images/logo.png' },
-  { id: 'tsp-ontracking-remote-metrics', name: 'ONTRACKING GPS REMOTE METRICS', logoUrl: 'https://portalv3.ontracking.com.mx/ontlogo.svg' },
-  { id: 'tsp-skymeduza', name: 'SKYMEDUZA', logoUrl: 'https://skymeduza.com/images/sky-logo2.png' },
-  { id: 'tsp-skyguardian', name: 'SKYGUARDIAN', logoUrl: 'https://skyguardian.us/images/simplecms/logo_logotipo-200w.jpg' },
-  { id: 'tsp-phoenix-telematics', name: 'PHOENIX TELEMATICS', logoUrl: null },
-  { id: 'tsp-tecno-gps', name: 'TECNO-GPS', logoUrl: null },
-  { id: 'tsp-itrack', name: 'ITRACK', logoUrl: null },
-  { id: 'tsp-ttc-total-tracking-center', name: 'TTC TOTAL TRACKING CENTER', logoUrl: null },
-  { id: 'tsp-ads-logic', name: 'GRUPO COMERCIAL ADS LOGIC DE MÉXICO', logoUrl: null },
-  { id: 'tsp-autotracking-world-connect', name: 'AUTOTRACKING WORLD CONNECT', logoUrl: null },
-  { id: 'tsp-tecnologia-servicios-y-vision', name: 'TECNOLOGÍA SERVICIOS Y VISION', logoUrl: null },
-  { id: 'tsp-navman-wireless-mexico', name: 'NAVMAN WIRELESS DE MÉXICO', logoUrl: null },
-  { id: 'tsp-hunter', name: 'HUNTER', logoUrl: null },
-  { id: 'tsp-gorilamx', name: 'GORILAMX', logoUrl: null },
-  { id: 'tsp-atlantida', name: 'ATLANTIDA', logoUrl: null },
-  { id: 'tsp-localizadores-gts', name: 'LOCALIZADORES GTS', logoUrl: null },
-  { id: 'tsp-blac', name: 'BLAC', logoUrl: null },
-  { id: 'tsp-motorlink', name: 'MOTORLINK', logoUrl: null },
-]
+const tsps = MOCK_DASHBOARD_TSPS
+
+const colCount = tsps.length
 
 const eventGroups: MatrixGroup[] = [
   {
@@ -57,11 +40,20 @@ const dataRichnessGroups: MatrixGroup[] = [
   },
 ]
 
-const eventStrength = [84, 67, 72, 58, 63, 60, 74, 70, 82, 55, 78, 66, 64, 88, 61, 57, 69, 52, 73]
-const dataStrength = [92, 78, 81, 75, 72, 76, 88, 84, 90, 69, 87, 73, 68, 94, 70, 66, 80, 64, 85]
-const integrationValues = [89, 74, 77, 69, 71, 73, 82, 79, 86, 65, 84, 70, 68, 90, 72, 67, 76, 63, 80]
-const entityValues = [2310, 1280, 1540, 980, 1110, 1235, 2015, 1780, 2490, 890, 2150, 1190, 1040, 2670, 1155, 940, 1395, 760, 1860]
-const riskIndexValues = [73, 58, 65, 52, 56, 60, 71, 68, 76, 49, 74, 57, 53, 81, 55, 50, 63, 47, 70]
+/** Deterministic pseudo-random scalars per column index (fallback mock only). */
+function padScalarPattern(base: number[], len: number): number[] {
+  const out: number[] = []
+  for (let i = 0; i < len; i++) {
+    out.push(base[i % base.length] ?? 0)
+  }
+  return out
+}
+
+const eventStrength = padScalarPattern([84, 67, 72, 58, 63, 60, 74, 70, 82, 55, 78, 66, 64, 88, 61, 57, 69, 52, 73], colCount)
+const dataStrength = padScalarPattern([92, 78, 81, 75, 72, 76, 88, 84, 90, 69, 87, 73, 68, 94, 70, 66, 80, 64, 85], colCount)
+const integrationValues = padScalarPattern([89, 74, 77, 69, 71, 73, 82, 79, 86, 65, 84, 70, 68, 90, 72, 67, 76, 63, 80], colCount)
+const entityValues = padScalarPattern([2310, 1280, 1540, 980, 1110, 1235, 2015, 1780, 2490, 890, 2150, 1190, 1040, 2670, 1155, 940, 1395, 760, 1860], colCount)
+const riskIndexValues = padScalarPattern([73, 58, 65, 52, 56, 60, 71, 68, 76, 49, 74, 57, 53, 81, 55, 50, 63, 47, 70], colCount)
 
 function buildScalarRow(values: number[]) {
   return Object.fromEntries(

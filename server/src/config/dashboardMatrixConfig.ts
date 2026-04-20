@@ -4,16 +4,16 @@ type MatrixGroup = { id: string; title: string; labels: MatrixLabel[] }
 export type DashboardTsp = {
   id: string
   name: string
-  logoUrl: null
+  logoUrl: string | null
   providerSlug: string | null
 }
 
 export const DASHBOARD_TSPS: DashboardTsp[] = [
-  { id: 'tsp-santrack-internacional', name: 'SANTRACK INTERNACIONAL', logoUrl: null, providerSlug: 'santrack' },
-  { id: 'tsp-tecnologistik-occidente', name: 'TECNOLOGISTIK DE OCCIDENTE (INFO-TRAX)', logoUrl: null, providerSlug: null },
-  { id: 'tsp-ontracking-remote-metrics', name: 'ONTRACKING GPS REMOTE METRICS', logoUrl: null, providerSlug: null },
-  { id: 'tsp-skymeduza', name: 'SKYMEDUZA', logoUrl: null, providerSlug: null },
-  { id: 'tsp-skyguardian', name: 'SKYGUARDIAN', logoUrl: null, providerSlug: null },
+  { id: 'tsp-santrack-internacional', name: 'SANTRACK INTERNACIONAL', logoUrl: 'https://gruposantrack.com/wp-content/uploads/2019/07/Santrak-texto-gde.png', providerSlug: 'santrack' },
+  { id: 'tsp-tecnologistik-occidente', name: 'TECNOLOGISTIK DE OCCIDENTE (INFO-TRAX)', logoUrl: 'https://www.info-trax.com/lp-infotrax-deteccion-de-jammer/images/logo.png', providerSlug: null },
+  { id: 'tsp-ontracking-remote-metrics', name: 'ONTRACKING GPS REMOTE METRICS', logoUrl: 'https://portalv3.ontracking.com.mx/ontlogo.svg', providerSlug: null },
+  { id: 'tsp-skymeduza', name: 'SKYMEDUZA', logoUrl: 'https://skymeduza.com/images/sky-logo2.png', providerSlug: null },
+  { id: 'tsp-skyguardian', name: 'SKYGUARDIAN', logoUrl: 'https://skyguardian.us/images/simplecms/logo_logotipo-200w.jpg', providerSlug: null },
   { id: 'tsp-phoenix-telematics', name: 'PHOENIX TELEMATICS', logoUrl: null, providerSlug: null },
   { id: 'tsp-tecno-gps', name: 'TECNO-GPS', logoUrl: null, providerSlug: null },
   { id: 'tsp-itrack', name: 'ITRACK', logoUrl: null, providerSlug: null },

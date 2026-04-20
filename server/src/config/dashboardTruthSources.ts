@@ -59,7 +59,7 @@ export const DASHBOARD_ROW_SEMANTICS: Record<string, DashboardRowSemantics> = {
     meaning:
       'Label support matrix: curated fallback when no Influx or no provider slug; with Influx, mapped TSPs use distinct-vehicle coverage vs total entities in the evaluation window.',
     accuracyNote:
-      'Live-mapped TSPs: a label is supported only if distinct vehicles with that label ÷ distinct vehicles for the provider ≥ EVENT_LABEL_COVERAGE_THRESHOLD (default 0.5), same range as entities.',
+      'Live-mapped TSPs: each label stores round((vehicles_with_label ÷ distinct entities for the provider) × 100) as coverage_pct; UI bands by pct. Curated fallback (no slug) remains boolean profile matrix.',
   },
   'metric-data-richness': {
     sourceType: 'curated_matrix',

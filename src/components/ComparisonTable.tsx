@@ -62,7 +62,12 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
                       </span>
                     )}
                   </span>
-                  <span className="comparison-table__tsp-name">{tsp.name}</span>
+                  <span
+                    className="comparison-table__tsp-name"
+                    title={tsp.name}
+                  >
+                    {tsp.name}
+                  </span>
                   {tsp.integrationStatus === 'pending_integration' && (
                     <span
                       className="comparison-table__tsp-pending"

@@ -1,5 +1,4 @@
 import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
-import { getEventLabelCoverageThreshold } from '../lib/influxEnv.js'
 import { resolveDashboardChild } from '../config/eventLabelGroups.js'
 import {
   logEventLabelVehicleCoverageSample,
@@ -11,7 +10,12 @@ type DashboardPayload = typeof mockTspComparisonResponse
 type MutableExpandableCell = {
   kind: 'expandable'
   summary: number
-  groups: { groupId: string; values: boolean[] }[]
+  eventLabelRollup?: {
+    supportedCount: number
+    totalLabels: number
+    aggregatePct: number
+  }
+  groups: { groupId: string; values: number[] }[]
 }
 
 /**
@@ -39,8 +43,10 @@ function aggregateDistinctVehiclesByMatrixChild(
 }
 
 /**
- * For live-mapped TSPs, sets each Event labels / Alarms Info cell to **supported** only when
- * `(vehicles_with_label / total_entities) >= threshold` (distinct `vid`, same window).
+ * For live-mapped TSPs, sets each Event labels / Alarms Info cell to **coverage_pct** =
+ * `round((vehicles_with_label / total_entities) * 100)` when `total_entities > 0`, else `0`
+ * (distinct `vid`, same window as entities). Parent row gets `supported_count / total_labels ·
+ * aggregate_pct` where `aggregate_pct` is the mean of per-label percentages.
  * TSPs without a provider slug keep the curated mock matrix unchanged.
  */
 export function mergeEventLabelVehicleCoverageIntoPayload(
@@ -55,7 +61,6 @@ export function mergeEventLabelVehicleCoverageIntoPayload(
     return
   }
 
-  const threshold = getEventLabelCoverageThreshold()
   const structure = metric.structure.groups
   const valuesByTsp = metric.values as unknown as Record<
     string,
@@ -69,7 +74,6 @@ export function mergeEventLabelVehicleCoverageIntoPayload(
     tspNameById,
     entityCountByProvider,
     labelVidCountByProvider,
-    threshold,
     24,
   )
 
@@ -88,23 +92,32 @@ export function mergeEventLabelVehicleCoverageIntoPayload(
     const rawByLabel = labelVidCountByProvider[slug] ?? {}
     const vehiclesByChild = aggregateDistinctVehiclesByMatrixChild(rawByLabel)
 
-    let summary = 0
+    const flatPcts: number[] = []
     const groupsOut = structure.map((g) => {
       const values = g.labels.map((l) => {
         const vehiclesWith = vehiclesByChild.get(l.id) ?? 0
-        const ratio =
-          totalEntities > 0 ? vehiclesWith / totalEntities : 0
-        const supported =
-          totalEntities > 0 && ratio >= threshold
-        if (supported) {
-          summary += 1
-        }
-        return supported
+        const coveragePct =
+          totalEntities > 0 ? (vehiclesWith / totalEntities) * 100 : 0
+        const rounded = Math.round(coveragePct)
+        flatPcts.push(rounded)
+        return rounded
       })
       return { groupId: g.id, values }
     })
 
-    cell.summary = summary
+    const totalLabels = flatPcts.length
+    const supportedCount = flatPcts.filter((p) => p > 0).length
+    const aggregatePct =
+      totalLabels > 0
+        ? flatPcts.reduce((a, b) => a + b, 0) / totalLabels
+        : 0
+
+    cell.summary = supportedCount
+    cell.eventLabelRollup = {
+      supportedCount,
+      totalLabels,
+      aggregatePct,
+    }
     cell.groups = groupsOut
   }
 }

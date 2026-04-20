@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import type { ExpandableMetricRow, Tsp } from '../types/dashboard'
+import { eventLabelCoverageBandClass } from '../utils/eventLabelCoverageBands'
 import { formatInteger } from '../utils/format'
 
 type ExpandableChildRowsProps = {
@@ -32,6 +33,7 @@ export function ExpandableChildRows({
 }: ExpandableChildRowsProps) {
   const { groups } = metric.structure
   const isSupportMatrix = metric.kind === 'support'
+  const isEventLabelsMetric = metric.id === 'metric-events-alarms'
 
   return (
     <>
@@ -74,6 +76,55 @@ export function ExpandableChildRows({
                   group.id,
                   labelIndex,
                 )
+
+                if (isEventLabelsMetric && isSupportMatrix) {
+                  if (v === null) {
+                    return (
+                      <td
+                        key={tsp.id}
+                        className="comparison-table__num comparison-table__num--support comparison-table__num--support-unavailable"
+                      >
+                        —
+                      </td>
+                    )
+                  }
+                  if (typeof v === 'number') {
+                    if (v === 0) {
+                      return (
+                        <td
+                          key={tsp.id}
+                          className="comparison-table__num comparison-table__num--ev-label comparison-table__num--label-cov-0"
+                        >
+                          0%
+                        </td>
+                      )
+                    }
+                    const band = eventLabelCoverageBandClass(v)
+                    return (
+                      <td
+                        key={tsp.id}
+                        className={`comparison-table__num comparison-table__num--ev-label ${band}`}
+                        title={`${v}% coverage (vehicles with label ÷ total entities)`}
+                      >
+                        <span className="comparison-table__ev-check" aria-hidden="true">
+                          ✓
+                        </span>{' '}
+                        <span className="comparison-table__ev-pct">{v}%</span>
+                      </td>
+                    )
+                  }
+                  const curatedOn = v === true
+                  const text = curatedOn ? '✓' : '—'
+                  const cls = curatedOn
+                    ? 'comparison-table__num comparison-table__num--support comparison-table__num--support-on'
+                    : 'comparison-table__num comparison-table__num--support comparison-table__num--support-off'
+                  return (
+                    <td key={tsp.id} className={cls}>
+                      {text}
+                    </td>
+                  )
+                }
+
                 const text = isSupportMatrix
                   ? v === true
                     ? '✓'

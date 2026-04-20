@@ -30,11 +30,24 @@ export type ExpandableGroup = {
 }
 
 /**
+ * Live Influx-backed rollup for Event labels / Alarms Info (slug-mapped TSPs only).
+ */
+export type EventLabelCoverageRollup = {
+  /** Labels with coverage_pct > 0 */
+  supportedCount: number
+  totalLabels: number
+  /** Mean of per-label coverage_pct across all matrix labels */
+  aggregatePct: number
+}
+
+/**
  * Per-TSP payload for an expandable metric: roll-up + parallel arrays per group.
  */
 export type ExpandableCell = {
   kind: 'expandable'
   summary: number | null
+  /** Present when event labels were merged from live entity + label coverage inputs. */
+  eventLabelRollup?: EventLabelCoverageRollup
   groups: {
     groupId: string
     /** Same order and length as `ExpandableGroup.labels` for that group */

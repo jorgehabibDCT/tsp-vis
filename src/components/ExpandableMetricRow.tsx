@@ -39,13 +39,30 @@ export function ExpandableMetricRow({
       {tsps.map((tsp) => {
         const cell = metric.values[tsp.id]
         const raw = cell?.summary ?? null
-        const display = isSupportMatrix
-          ? raw === null || Number.isNaN(raw)
-            ? '—'
-            : `${raw}/${totalLabels}`
-          : formatInteger(raw)
+        const eventLabelRollup =
+          metric.id === 'metric-events-alarms' &&
+          cell?.kind === 'expandable'
+            ? cell.eventLabelRollup
+            : undefined
+
+        let display: string
+        if (eventLabelRollup) {
+          const { supportedCount, totalLabels: tl, aggregatePct } =
+            eventLabelRollup
+          display = `${supportedCount}/${tl} · ${Math.round(aggregatePct)}%`
+        } else if (isSupportMatrix) {
+          display =
+            raw === null || Number.isNaN(raw)
+              ? '—'
+              : `${raw}/${totalLabels}`
+        } else {
+          display = formatInteger(raw)
+        }
+
         const cls = isSupportMatrix
-          ? 'comparison-table__num comparison-table__num--support-summary'
+          ? `comparison-table__num comparison-table__num--support-summary${
+              eventLabelRollup ? ' comparison-table__num--event-label-summary' : ''
+            }`
           : 'comparison-table__num'
         return (
           <td key={tsp.id} className={cls}>

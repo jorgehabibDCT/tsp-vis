@@ -218,9 +218,22 @@ export function logDashboardBackendLiveVerification(params: {
     const entVal = entCell?.value ?? null
 
     const evCell = eventValues?.[tsp.id] as
-      | { kind: 'expandable'; summary: number }
+      | {
+          kind: 'expandable'
+          summary: number
+          eventLabelRollup?: {
+            supportedCount: number
+            totalLabels: number
+            aggregatePct: number
+          }
+        }
       | undefined
-    const eventSummary = evCell?.kind === 'expandable' ? evCell.summary : null
+    const eventSummary =
+      evCell?.kind === 'expandable'
+        ? evCell.eventLabelRollup != null
+          ? `${evCell.eventLabelRollup.supportedCount}/${evCell.eventLabelRollup.totalLabels}·${Math.round(evCell.eventLabelRollup.aggregatePct)}%`
+          : evCell.summary
+        : null
 
     if (!slug) {
       if (entitiesQuerySucceeded && entVal !== null) {
@@ -263,7 +276,6 @@ export function logEventLabelVehicleCoverageSample(
   tspNameById: Record<string, string>,
   entityByProvider: Record<string, number>,
   labelVidByProvider: Record<string, Record<string, number>>,
-  threshold: number,
   maxSamples: number,
 ): void {
   const flatIds = groups.flatMap((g) => g.labels.map((l) => l.id))
@@ -287,7 +299,7 @@ export function logEventLabelVehicleCoverageSample(
   }
 
   console.log(
-    `[diag/event-labels] vehicle_coverage threshold=${threshold} rule: vehicles_with_label/total_entities>=threshold (distinct vid per label; evaluation window matches entities)`,
+    '[diag/event-labels] vehicle_coverage rule: coverage_pct = round((vehicles_with_label/total_entities)*100) per label (distinct vid per label; evaluation window matches entities)',
   )
 
   const mappedTspIds = Object.entries(slugByTspId)
@@ -310,9 +322,9 @@ export function logEventLabelVehicleCoverageSample(
       }
       const vehiclesWith = byChild.get(labelId) ?? 0
       const ratio = totalEntities > 0 ? vehiclesWith / totalEntities : 0
-      const support = totalEntities > 0 && ratio >= threshold
+      const coveragePct = Math.round(ratio * 100)
       console.log(
-        `[diag/event-labels] coverage sample tsp_name="${displayName}" tsp_id=${tspId} provider_slug=${slug} label_id=${labelId} total_entities=${totalEntities} vehicles_with_label=${vehiclesWith} ratio=${ratio.toFixed(4)} support=${support}`,
+        `[diag/event-labels] coverage sample tsp_name="${displayName}" tsp_id=${tspId} provider_slug=${slug} label_id=${labelId} total_entities=${totalEntities} vehicles_with_label=${vehiclesWith} ratio=${ratio.toFixed(4)} coverage_pct=${coveragePct}`,
       )
       logged += 1
     }

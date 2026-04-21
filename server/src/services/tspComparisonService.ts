@@ -2,8 +2,6 @@ import { getTspProviderSlugMap } from '../config/tspProviderMap.js'
 import { isInfluxConfigured } from '../lib/influxEnv.js'
 import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
 import { withDashboardResponseCache } from './dashboardResponseCache.js'
-import { fetchDistinctEntityCountsByProvider } from './influxTspMetrics.js'
-import { fetchDistinctVehicleCountByProviderAndLabel } from './influxEventLabels.js'
 import { mergeEventLabelVehicleCoverageIntoPayload } from './mergeEventLabelDashboard.js'
 import { recomputeProviderReadinessScores } from '../utils/providerReadinessScore.js'
 import {
@@ -14,6 +12,10 @@ import {
   finalizeDashboardPayload,
   type DashboardPayload,
 } from '../utils/dashboardPayloadFinalize.js'
+import {
+  defaultInfluxDashboardQueryPort,
+  type InfluxDashboardQueryPort,
+} from './influxDashboardQueryPort.js'
 
 function cloneDashboardPayload(): DashboardPayload {
   return JSON.parse(
@@ -51,21 +53,12 @@ function mergeEntityCountsIntoPayload(
 }
 
 /**
- * Assembles the dashboard matrix.
- * **Number of Entities** and **Event labels / Alarms Info** (for slug-mapped TSPs) use Influx
- * when configured; Integration % and data richness remain curated mock for integrated columns.
- * Risk Index/Provider Readiness is recomputed at runtime from the matrix inputs.
- * `finalizeDashboardPayload` sorts columns and clears all metrics for
- * `pending_integration` TSPs (no placeholder data in the API response).
+ * Influx merge path using an injectable query port (production uses
+ * {@link defaultInfluxDashboardQueryPort}). Exported for focused tests only.
  */
-async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
-  if (!isInfluxConfigured()) {
-    const payload = cloneDashboardPayload()
-    recomputeProviderReadinessScores(payload)
-    finalizeDashboardPayload(payload)
-    return payload
-  }
-
+export async function buildTspComparisonDashboardMerged(
+  port: InfluxDashboardQueryPort,
+): Promise<DashboardPayload> {
   const slugByTspId = getTspProviderSlugMap()
   const payload = cloneDashboardPayload()
 
@@ -76,7 +69,7 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   let entityCountByProvider: Record<string, number> = {}
   let entitiesQuerySucceeded = false
   try {
-    entityCountByProvider = await fetchDistinctEntityCountsByProvider()
+    entityCountByProvider = await port.fetchDistinctEntityCountsByProvider()
     logTspSlugMapVsInfluxProviders(
       'entities',
       slugByTspId,
@@ -94,7 +87,7 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   let eventLabelsQuerySucceeded = false
   try {
     const labelVidByProvider =
-      await fetchDistinctVehicleCountByProviderAndLabel()
+      await port.fetchDistinctVehicleCountByProviderAndLabel()
     logTspSlugMapVsInfluxProviders(
       'event-labels',
       slugByTspId,
@@ -131,7 +124,26 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
 }
 
 /**
- * Returns the TSP comparison dashboard payload (cached in memory with TTL).
+ * Assembles the dashboard matrix.
+ * **Number of Entities** and **Event labels / Alarms Info** (for slug-mapped TSPs) use Influx
+ * when configured; Integration % and data richness remain curated mock for integrated columns.
+ * Risk Index/Provider Readiness is recomputed at runtime from the matrix inputs.
+ * `finalizeDashboardPayload` sorts columns and clears all metrics for
+ * `pending_integration` TSPs (no placeholder data in the API response).
+ */
+async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
+  if (!isInfluxConfigured()) {
+    const payload = cloneDashboardPayload()
+    recomputeProviderReadinessScores(payload)
+    finalizeDashboardPayload(payload)
+    return payload
+  }
+
+  return buildTspComparisonDashboardMerged(defaultInfluxDashboardQueryPort)
+}
+
+/**
+ * Returns the assembled dashboard payload (cached in memory with TTL).
  * When Influx env is set, **Number of Entities** is merged from Flux when the query succeeds.
  * **Event labels / Alarms Info** uses distinct-vehicle coverage vs entities (≥50% default) for
  * TSPs with a provider slug; Risk Index/Provider Readiness is then recomputed from matrix inputs.

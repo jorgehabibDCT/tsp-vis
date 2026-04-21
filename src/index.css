@@ -41,6 +41,31 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #0f141b;
+  --color-surface: #151c26;
+  --color-surface-elevated: #1b2430;
+  --color-border: #2c3a4b;
+  --color-border-subtle: #233041;
+  --color-text: #e8edf6;
+  --color-text-muted: #aeb8c8;
+  --color-text-faint: #8090a6;
+  --color-row-hover: #1a2432;
+  --color-control-hover: #253246;
+  --color-focus: #7ea8ff;
+  --color-accent: #7ea8ff;
+  --color-thead: #1a2432;
+  --color-thead-border: #324357;
+  --color-group-row: #1e2b3b;
+  --color-group-accent: #86a9ff;
+  --color-detail-bg: #17212e;
+  --color-label-column: #151f2b;
+  --shadow-table: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-sticky-y: 0 2px 4px rgba(0, 0, 0, 0.45);
+  --shadow-sticky-x: 2px 0 4px rgba(0, 0, 0, 0.35);
+}
+
 *,
 *::before,
 *::after {

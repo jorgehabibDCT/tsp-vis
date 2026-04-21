@@ -40,29 +40,38 @@ export function ExpandableChildRows({
     <>
       {groups.map((group, groupIndex) => (
         <Fragment key={`${metric.id}-${group.id}`}>
-          <tr
-            className="comparison-table__row comparison-table__row--group"
-            {...(groupIndex === 0 ? { id: detailsId } : {})}
-          >
-            <th
-              scope="row"
-              className="comparison-table__label comparison-table__label--group"
+          {!isEventLabelsMetric && (
+            <tr
+              className="comparison-table__row comparison-table__row--group"
+              {...(groupIndex === 0 ? { id: detailsId } : {})}
             >
-              {group.title}
-            </th>
-            {tsps.map((tsp) => (
-              <td
-                key={tsp.id}
-                className="comparison-table__num comparison-table__num--muted"
+              <th
+                scope="row"
+                className="comparison-table__label comparison-table__label--group"
               >
-                —
-              </td>
-            ))}
-          </tr>
+                {group.title}
+              </th>
+              {tsps.map((tsp) => (
+                <td
+                  key={tsp.id}
+                  className="comparison-table__num comparison-table__num--muted"
+                >
+                  —
+                </td>
+              ))}
+            </tr>
+          )}
           {group.labels.map((label, labelIndex) => (
             <tr
               key={`${metric.id}-${group.id}-${label.id}`}
-              className="comparison-table__row comparison-table__row--detail"
+              className={`comparison-table__row comparison-table__row--detail${
+                isEventLabelsMetric && labelIndex === 0 && groupIndex > 0
+                  ? ' comparison-table__row--event-group-divider'
+                  : ''
+              }`}
+              {...(isEventLabelsMetric && groupIndex === 0 && labelIndex === 0
+                ? { id: detailsId }
+                : {})}
             >
               <th
                 scope="row"

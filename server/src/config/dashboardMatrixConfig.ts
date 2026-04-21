@@ -104,7 +104,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-phoenix-telematics',
     name: 'PHOENIX TELEMATICS',
-    logoUrl: null,
+    logoUrl: 'https://www.gpsphoenix.com/img/logos/logo-dark.png',
     providerSlug: null,
     providerMappingConfidence: 'unmapped',
     integrationStatus: PEND,
@@ -114,7 +114,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-tecno-gps',
     name: 'TECNO-GPS',
-    logoUrl: null,
+    logoUrl: 'https://tecnogps.cl/wp-content/uploads/2020/03/Logo-tecnogps.png',
     providerSlug: 'telematics_advance',
     providerMappingConfidence: 'plausible_pending',
     integrationStatus: INT,
@@ -122,7 +122,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-itrack',
     name: 'ITRACK',
-    logoUrl: null,
+    logoUrl: 'https://www.itrack.top/local/itrack.top/images/left_logo.png',
     providerSlug: null,
     providerMappingConfidence: 'unmapped',
     integrationStatus: PEND,
@@ -130,7 +130,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-ttc-total-tracking-center',
     name: 'TTC TOTAL TRACKING CENTER',
-    logoUrl: null,
+    logoUrl: 'https://trackingcenter.mx/wp-content/uploads/2024/02/TTC-D.png',
     providerSlug: null,
     providerMappingConfidence: 'unmapped',
     integrationStatus: PEND,
@@ -138,7 +138,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-ads-logic',
     name: 'GRUPO COMERCIAL ADS LOGIC DE MÉXICO',
-    logoUrl: null,
+    logoUrl: 'https://adslogicmexico.com/wp-content/uploads/logo_svg.svg',
     providerSlug: null,
     providerMappingConfidence: 'unmapped',
     integrationStatus: PEND,
@@ -163,7 +163,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-navman-wireless-mexico',
     name: 'NAVMAN WIRELESS DE MÉXICO',
-    logoUrl: null,
+    logoUrl: 'https://www.teletracnavman.com/media/25914/teletrac-rgb-pbv-pos_resize.png',
     providerSlug: null,
     providerMappingConfidence: 'unmapped',
     integrationStatus: PEND,
@@ -180,7 +180,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-gorilamx',
     name: 'GORILAMX',
-    logoUrl: null,
+    logoUrl: 'https://gorilamx.com/wp-content/themes/gorila/img/logov3.png',
     providerSlug: null,
     providerMappingConfidence: 'unmapped',
     integrationStatus: PEND,
@@ -197,7 +197,8 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   {
     id: 'tsp-localizadores-gts',
     name: 'LOCALIZADORES GTS',
-    logoUrl: null,
+    logoUrl:
+      'https://media.licdn.com/dms/image/v2/D4E0BAQGB2nU1Raatvg/company-logo_200_200/B4EZk1tm3YKYAI-/0/1757542772593?e=2147483647&v=beta&t=ROfzPilFDkl9mvvUxVIgsQDLGrHx2lU7FkEVAF6Iz-w',
     providerSlug: BUCKET_PROVIDER_LOCALIZADORES_GTS,
     providerMappingConfidence: 'confident',
     integrationStatus: INT,

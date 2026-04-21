@@ -5,6 +5,7 @@ import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { fetchDistinctEntityCountsByProvider } from './influxTspMetrics.js'
 import { fetchDistinctVehicleCountByProviderAndLabel } from './influxEventLabels.js'
 import { mergeEventLabelVehicleCoverageIntoPayload } from './mergeEventLabelDashboard.js'
+import { recomputeProviderReadinessScores } from '../utils/providerReadinessScore.js'
 import {
   logTspSlugMapVsInfluxProviders,
   logDashboardBackendLiveVerification,
@@ -52,13 +53,15 @@ function mergeEntityCountsIntoPayload(
 /**
  * Assembles the dashboard matrix.
  * **Number of Entities** and **Event labels / Alarms Info** (for slug-mapped TSPs) use Influx
- * when configured; Integration %, data richness, and Risk Index remain curated mock for
- * integrated columns. `finalizeDashboardPayload` sorts columns and clears all metrics for
+ * when configured; Integration % and data richness remain curated mock for integrated columns.
+ * Risk Index/Provider Readiness is recomputed at runtime from the matrix inputs.
+ * `finalizeDashboardPayload` sorts columns and clears all metrics for
  * `pending_integration` TSPs (no placeholder data in the API response).
  */
 async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
   if (!isInfluxConfigured()) {
     const payload = cloneDashboardPayload()
+    recomputeProviderReadinessScores(payload)
     finalizeDashboardPayload(payload)
     return payload
   }
@@ -112,6 +115,7 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
     )
   }
 
+  recomputeProviderReadinessScores(payload)
   finalizeDashboardPayload(payload)
 
   logDashboardBackendLiveVerification({
@@ -130,8 +134,7 @@ async function buildTspComparisonDashboard(): Promise<DashboardPayload> {
  * Returns the TSP comparison dashboard payload (cached in memory with TTL).
  * When Influx env is set, **Number of Entities** is merged from Flux when the query succeeds.
  * **Event labels / Alarms Info** uses distinct-vehicle coverage vs entities (≥50% default) for
- * TSPs with a provider slug; other capability rows and Risk Index remain curated mock unless
- * extended later.
+ * TSPs with a provider slug; Risk Index/Provider Readiness is then recomputed from matrix inputs.
  */
 export async function getTspComparisonDashboard(): Promise<DashboardPayload> {
   return withDashboardResponseCache(buildTspComparisonDashboard)

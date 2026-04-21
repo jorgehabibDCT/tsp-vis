@@ -430,7 +430,7 @@ export const CURATED_RISK_INDEX_VALUES: Record<string, ScalarCell> = Object.from
   DASHBOARD_TSPS.map((tsp) => {
     const eventCell = CURATED_EVENT_SUPPORT_VALUES[tsp.id]
     const richnessCell = CURATED_DATA_RICHNESS_VALUES[tsp.id]
-    const entities = CURATED_ENTITY_MOCK_VALUES[tsp.id]?.value ?? null
+    const entities = CURATED_TRUTH_BY_TSP[tsp.id]?.entityMock ?? null
     const score =
       eventCell && richnessCell
         ? computeReadinessScore({

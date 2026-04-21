@@ -1,4 +1,7 @@
 import { getApiBaseUrl } from '../api'
+import { isPegasusThemeDebugEnabled } from './pegasusThemeDebugFlag'
+
+export { isPegasusThemeDebugEnabled } from './pegasusThemeDebugFlag'
 
 /**
  * Pegasus iframe theme inheritance (verification notes):
@@ -15,22 +18,8 @@ import { getApiBaseUrl } from '../api'
 
 export type AppTheme = 'light' | 'dark'
 
-function pegasusThemeDebugEnabled(): boolean {
-  try {
-    if (localStorage.getItem('pegasusThemeDebug') === '1') {
-      return true
-    }
-    return (
-      new URLSearchParams(window.location.search).get('pegasusThemeDebug') ===
-      '1'
-    )
-  } catch {
-    return false
-  }
-}
-
 function logPegasusTheme(message: string, detail?: Record<string, unknown>) {
-  if (!pegasusThemeDebugEnabled()) {
+  if (!isPegasusThemeDebugEnabled()) {
     return
   }
   if (detail) {
@@ -132,6 +121,13 @@ async function fetchPegasusMetadataTheme(): Promise<AppTheme | null> {
  * Falls back to the app's default light tokens when context is unavailable.
  */
 export async function initPegasusTheme(): Promise<void> {
+  if (isPegasusThemeDebugEnabled()) {
+    const { runPegasusThemeRuntimeInspection } = await import(
+      './pegasusThemeRuntimeInspection'
+    )
+    await runPegasusThemeRuntimeInspection()
+  }
+
   const embedded = window.self !== window.top
   if (!embedded) {
     document.documentElement.removeAttribute('data-pegasus-embed')

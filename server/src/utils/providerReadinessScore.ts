@@ -4,6 +4,7 @@ type DashboardPayload = typeof mockTspComparisonResponse
 
 type ScalarCell = { kind: 'scalar'; value: number | null }
 type ExpandableCell = { kind: 'expandable'; summary: number | null }
+type RawScoreEntry = { tspId: string; rawScore: number }
 
 function clamp0to100(v: number): number {
   return Math.max(0, Math.min(100, v))
@@ -25,6 +26,20 @@ function totalLabels(structure: {
   groups: { labels: { id: string; name: string }[] }[]
 }): number {
   return structure.groups.reduce((acc, g) => acc + g.labels.length, 0)
+}
+
+function percentileScoreFor(raw: number, sample: number[]): number {
+  let lt = 0
+  let eq = 0
+  for (const s of sample) {
+    if (s < raw) {
+      lt += 1
+    } else if (s === raw) {
+      eq += 1
+    }
+  }
+  const pct = ((lt + 0.5 * eq) / sample.length) * 100
+  return clamp0to100(pct)
 }
 
 /**
@@ -70,16 +85,15 @@ export function recomputeProviderReadinessScores(payload: DashboardPayload): voi
 
   const debugRows: string[] = []
   let debugCount = 0
+  const rawScores: RawScoreEntry[] = []
 
   for (const tsp of payload.tsps) {
-    const oldScore = riskValues[tsp.id]?.value ?? null
-
     const entities = entityValues[tsp.id]?.value ?? null
     const eventSupported = eventValues[tsp.id]?.summary ?? null
     const richnessSupported = richnessValues[tsp.id]?.summary ?? null
     const modifier = confidenceModifier(tsp.providerMappingConfidence)
 
-    let nextScore: number | null = null
+    let rawScore: number | null = null
 
     if (
       tsp.integrationStatus === 'integrated' &&
@@ -101,22 +115,43 @@ export function recomputeProviderReadinessScores(payload: DashboardPayload): voi
       const scaleScore = Math.sqrt(entities / maxEntitiesAmongIntegrated) * 100
       const matrixScore = Math.sqrt(breadthScore * richnessScore)
       const baseScore = 0.7 * matrixScore + 0.3 * scaleScore
-      nextScore = clamp0to100(Math.round(baseScore * modifier))
-
-      if (debugCount < 3) {
-        debugRows.push(
-          `${tsp.name}: old=${oldScore ?? 'null'} new=${nextScore} breadth=${breadthScore.toFixed(2)} richness=${richnessScore.toFixed(2)} scale=${scaleScore.toFixed(2)} matrix=${matrixScore.toFixed(2)} base=${baseScore.toFixed(2)} conf=${modifier.toFixed(2)}`,
-        )
-        debugCount += 1
-      }
+      rawScore = clamp0to100(Math.round(baseScore * modifier))
     }
 
+    if (rawScore !== null) {
+      rawScores.push({ tspId: tsp.id, rawScore })
+    }
+    riskValues[tsp.id] = { kind: 'scalar', value: rawScore }
+  }
+
+  const MIN_PROVIDERS_FOR_PERCENTILE = 3
+  const canApplyPercentile = rawScores.length >= MIN_PROVIDERS_FOR_PERCENTILE
+  const rawSample = rawScores.map((r) => r.rawScore)
+
+  for (const tsp of payload.tsps) {
+    const oldScore = riskValues[tsp.id]?.value ?? null
+    if (oldScore === null) {
+      continue
+    }
+    let nextScore = oldScore
+    let percentile: number | null = null
+    if (canApplyPercentile) {
+      percentile = percentileScoreFor(oldScore, rawSample)
+      nextScore = clamp0to100(Math.round(0.35 * oldScore + 0.65 * percentile))
+    }
     riskValues[tsp.id] = { kind: 'scalar', value: nextScore }
+
+    if (debugCount < 3) {
+      debugRows.push(
+        `${tsp.name}: raw=${oldScore} percentile=${percentile === null ? 'n/a' : percentile.toFixed(2)} display=${nextScore} percentile_enabled=${canApplyPercentile}`,
+      )
+      debugCount += 1
+    }
   }
 
   if (debugRows.length > 0) {
     console.log(
-      `[dashboard/score] active_calculator=recomputeProviderReadinessScores max_entities_integrated=${maxEntitiesAmongIntegrated}`,
+      `[dashboard/score] active_calculator=recomputeProviderReadinessScores max_entities_integrated=${maxEntitiesAmongIntegrated} percentile_sample_size=${rawScores.length} percentile_enabled=${canApplyPercentile}`,
     )
     for (const row of debugRows) {
       console.log(`[dashboard/score] ${row}`)

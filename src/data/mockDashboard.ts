@@ -106,6 +106,19 @@ function clamp0to100(v: number): number {
   return Math.max(0, Math.min(100, v))
 }
 
+function percentileScoreFor(raw: number, sample: number[]): number {
+  let lt = 0
+  let eq = 0
+  for (const s of sample) {
+    if (s < raw) {
+      lt += 1
+    } else if (s === raw) {
+      eq += 1
+    }
+  }
+  return clamp0to100(((lt + 0.5 * eq) / sample.length) * 100)
+}
+
 const eventSupportValues = buildSupportMatrix(eventGroups, eventStrength)
 const dataRichnessValues = buildSupportMatrix(dataRichnessGroups, dataStrength)
 const totalEventLabels = countTotalLabels(eventGroups)
@@ -154,7 +167,22 @@ function computeReadinessValue(tspIndex: number): number | null {
   return clamp0to100(Math.round(baseScore * modifier))
 }
 
-const riskIndexValues = tsps.map((_tsp, tspIndex) => computeReadinessValue(tspIndex))
+const rawReadinessValues = tsps.map((_tsp, tspIndex) => computeReadinessValue(tspIndex))
+const validRawScores = rawReadinessValues.filter(
+  (v): v is number => v !== null && Number.isFinite(v),
+)
+const MIN_PROVIDERS_FOR_PERCENTILE = 3
+const canApplyPercentile = validRawScores.length >= MIN_PROVIDERS_FOR_PERCENTILE
+const riskIndexValues = rawReadinessValues.map((raw) => {
+  if (raw === null) {
+    return null
+  }
+  if (!canApplyPercentile) {
+    return raw
+  }
+  const percentile = percentileScoreFor(raw, validRawScores)
+  return clamp0to100(Math.round(0.35 * raw + 0.65 * percentile))
+})
 
 /**
  * Static fallback payload for local dev and when `VITE_API_URL` is unset.

@@ -66,7 +66,7 @@ export const mockTspComparisonResponse = {
     },
     {
       id: 'metric-risk-index',
-      label: 'Risk Index Enablement',
+      label: 'Provider Readiness Score',
       type: 'scalar',
       kind: 'score',
       values: CURATED_RISK_INDEX_VALUES,

@@ -57,11 +57,10 @@ const eventStrength = padScalarPattern([84, 67, 72, 58, 63, 60, 74, 70, 82, 55, 
 const dataStrength = padScalarPattern([92, 78, 81, 75, 72, 76, 88, 84, 90, 69, 87, 73, 68, 94, 70, 66, 80, 64, 85], colCount)
 const integrationValues = padScalarPattern([89, 74, 77, 69, 71, 73, 82, 79, 86, 65, 84, 70, 68, 90, 72, 67, 76, 63, 80], colCount)
 const entityValues = padScalarPattern([2310, 1280, 1540, 980, 1110, 1235, 2015, 1780, 2490, 890, 2150, 1190, 1040, 2670, 1155, 940, 1395, 760, 1860], colCount)
-const riskIndexValues = padScalarPattern([73, 58, 65, 52, 56, 60, 71, 68, 76, 49, 74, 57, 53, 81, 55, 50, 63, 47, 70], colCount)
 
-function buildScalarRow(values: number[]) {
+function buildScalarRow(values: Array<number | null>) {
   return Object.fromEntries(
-    tsps.map((tsp, index) => [tsp.id, { kind: 'scalar' as const, value: values[index] ?? 0 }]),
+    tsps.map((tsp, index) => [tsp.id, { kind: 'scalar' as const, value: values[index] ?? null }]),
   )
 }
 
@@ -88,6 +87,74 @@ function buildSupportMatrix(groups: MatrixGroup[], strengths: number[]) {
     }),
   )
 }
+
+function countTotalLabels(groups: MatrixGroup[]): number {
+  return groups.reduce((acc, g) => acc + g.labels.length, 0)
+}
+
+function confidenceModifier(conf: string | undefined): number | null {
+  if (conf === 'confident') {
+    return 1
+  }
+  if (conf === 'plausible_pending') {
+    return 0.85
+  }
+  return null
+}
+
+function clamp0to100(v: number): number {
+  return Math.max(0, Math.min(100, v))
+}
+
+const eventSupportValues = buildSupportMatrix(eventGroups, eventStrength)
+const dataRichnessValues = buildSupportMatrix(dataRichnessGroups, dataStrength)
+const totalEventLabels = countTotalLabels(eventGroups)
+const totalRichnessLabels = countTotalLabels(dataRichnessGroups)
+
+const maxEntitiesAmongIntegrated = tsps.reduce((max, tsp, idx) => {
+  if (tsp.integrationStatus !== 'integrated') {
+    return max
+  }
+  const entities = entityValues[idx] ?? null
+  if (entities === null || !Number.isFinite(entities) || entities <= 0) {
+    return max
+  }
+  return Math.max(max, entities)
+}, 0)
+
+function computeReadinessValue(tspIndex: number): number | null {
+  const tsp = tsps[tspIndex]
+  if (!tsp || tsp.integrationStatus !== 'integrated' || !tsp.providerSlug) {
+    return null
+  }
+  const modifier = confidenceModifier(tsp.providerMappingConfidence)
+  if (modifier === null || maxEntitiesAmongIntegrated <= 0) {
+    return null
+  }
+
+  const eventSummary = eventSupportValues[tsp.id]?.summary ?? null
+  const richnessSummary = dataRichnessValues[tsp.id]?.summary ?? null
+  const entities = entityValues[tspIndex] ?? null
+  if (
+    eventSummary === null ||
+    richnessSummary === null ||
+    entities === null ||
+    entities < 0 ||
+    totalEventLabels <= 0 ||
+    totalRichnessLabels <= 0
+  ) {
+    return null
+  }
+
+  const breadthScore = (eventSummary / totalEventLabels) * 100
+  const richnessScore = (richnessSummary / totalRichnessLabels) * 100
+  const scaleScore = Math.sqrt(entities / maxEntitiesAmongIntegrated) * 100
+  const matrixScore = Math.sqrt(breadthScore * richnessScore)
+  const baseScore = 0.7 * matrixScore + 0.3 * scaleScore
+  return clamp0to100(Math.round(baseScore * modifier))
+}
+
+const riskIndexValues = tsps.map((_tsp, tspIndex) => computeReadinessValue(tspIndex))
 
 /**
  * Static fallback payload for local dev and when `VITE_API_URL` is unset.
@@ -116,7 +183,7 @@ export const mockTspComparisonResponse: TspComparisonResponse = {
       type: 'expandable',
       kind: 'support',
       structure: { groups: eventGroups },
-      values: buildSupportMatrix(eventGroups, eventStrength),
+      values: eventSupportValues,
     },
     {
       id: 'metric-data-richness',
@@ -124,11 +191,11 @@ export const mockTspComparisonResponse: TspComparisonResponse = {
       type: 'expandable',
       kind: 'support',
       structure: { groups: dataRichnessGroups },
-      values: buildSupportMatrix(dataRichnessGroups, dataStrength),
+      values: dataRichnessValues,
     },
     {
       id: 'metric-risk-index',
-      label: 'Risk Index Enablement',
+      label: 'Provider Readiness Score',
       type: 'scalar',
       kind: 'score',
       values: buildScalarRow(riskIndexValues),

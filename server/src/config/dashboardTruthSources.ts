@@ -2,6 +2,7 @@ import {
   DASHBOARD_TSPS,
   DATA_RICHNESS_GROUPS,
   EVENT_ALARM_GROUPS,
+  type DashboardTsp,
 } from './dashboardMatrixConfig.js'
 import { INTEGRATION_FORMULA_PROPOSAL } from './integrationMetricSemantics.js'
 import {
@@ -148,7 +149,6 @@ const DATA_PROFILE_LABELS: Record<DataProfileId, string[]> = {
 type TspCuratedTruth = {
   eventProfile: EventProfileId
   dataProfile: DataProfileId
-  riskIndex: number
   entityMock: number
 }
 
@@ -178,7 +178,6 @@ function csvBucketImportedTspCuratedDefaults(): Record<string, TspCuratedTruth> 
     out[id] = {
       eventProfile: 'event_min',
       dataProfile: 'data_core',
-      riskIndex: 55,
       entityMock: 1000 + i * 41,
     }
   }
@@ -193,115 +192,96 @@ export const CURATED_TRUTH_BY_TSP: Record<string, TspCuratedTruth> = {
   'tsp-santrack-internacional': {
     eventProfile: 'event_standard',
     dataProfile: 'data_full',
-    riskIndex: 73,
     entityMock: 2310,
   },
   'tsp-tecnologistik-occidente': {
     eventProfile: 'event_core',
     dataProfile: 'data_standard',
-    riskIndex: 58,
     entityMock: 1280,
   },
   'tsp-ontracking-remote-metrics': {
     eventProfile: 'event_standard',
     dataProfile: 'data_standard',
-    riskIndex: 65,
     entityMock: 1540,
   },
   'tsp-skymeduza': {
     eventProfile: 'event_min',
     dataProfile: 'data_core',
-    riskIndex: 52,
     entityMock: 980,
   },
   'tsp-skyguardian': {
     eventProfile: 'event_core',
     dataProfile: 'data_standard',
-    riskIndex: 56,
     entityMock: 1110,
   },
   'tsp-phoenix-telematics': {
     eventProfile: 'event_core',
     dataProfile: 'data_standard',
-    riskIndex: 60,
     entityMock: 1235,
   },
   'tsp-tecno-gps': {
     eventProfile: 'event_standard',
     dataProfile: 'data_full',
-    riskIndex: 71,
     entityMock: 2015,
   },
   'tsp-itrack': {
     eventProfile: 'event_standard',
     dataProfile: 'data_standard',
-    riskIndex: 68,
     entityMock: 1780,
   },
   'tsp-ttc-total-tracking-center': {
     eventProfile: 'event_full',
     dataProfile: 'data_full',
-    riskIndex: 76,
     entityMock: 2490,
   },
   'tsp-ads-logic': {
     eventProfile: 'event_min',
     dataProfile: 'data_core',
-    riskIndex: 49,
     entityMock: 890,
   },
   'tsp-autotracking-world-connect': {
     eventProfile: 'event_standard',
     dataProfile: 'data_full',
-    riskIndex: 74,
     entityMock: 2150,
   },
   'tsp-tecnologia-servicios-y-vision': {
     eventProfile: 'event_core',
     dataProfile: 'data_standard',
-    riskIndex: 57,
     entityMock: 1190,
   },
   'tsp-navman-wireless-mexico': {
     eventProfile: 'event_core',
     dataProfile: 'data_core',
-    riskIndex: 53,
     entityMock: 1040,
   },
   'tsp-hunter': {
     eventProfile: 'event_full',
     dataProfile: 'data_full',
-    riskIndex: 81,
     entityMock: 2670,
   },
   'tsp-gorilamx': {
     eventProfile: 'event_core',
     dataProfile: 'data_standard',
-    riskIndex: 55,
     entityMock: 1155,
   },
   'tsp-atlantida': {
     eventProfile: 'event_min',
     dataProfile: 'data_core',
-    riskIndex: 50,
     entityMock: 940,
   },
   'tsp-localizadores-gts': {
     eventProfile: 'event_standard',
     dataProfile: 'data_standard',
-    riskIndex: 63,
     entityMock: 1395,
   },
   'tsp-blac': {
     eventProfile: 'event_min',
     dataProfile: 'data_core',
-    riskIndex: 47,
     entityMock: 760,
   },
   'tsp-motorlink': {
     eventProfile: 'event_standard',
     dataProfile: 'data_full',
-    riskIndex: 70,
     entityMock: 1860,
   },
   ...csvBucketImportedTspCuratedDefaults(),
@@ -362,13 +342,112 @@ export const CURATED_DATA_RICHNESS_VALUES = buildProfileMatrix(
   ),
 )
 
-export const CURATED_RISK_INDEX_VALUES: Record<string, ScalarCell> =
-  Object.fromEntries(
-    Object.entries(CURATED_TRUTH_BY_TSP).map(([tspId, v]) => [
-      tspId,
-      { kind: 'scalar', value: v.riskIndex },
-    ]),
-  )
+function countTotalLabels(groups: { labels: { id: string }[] }[]): number {
+  return groups.reduce((acc, g) => acc + g.labels.length, 0)
+}
+
+function clampScore0to100(v: number): number {
+  return Math.max(0, Math.min(100, v))
+}
+
+function confidenceModifier(
+  confidence: DashboardTsp['providerMappingConfidence'],
+): number | null {
+  if (confidence === 'confident') {
+    return 1
+  }
+  if (confidence === 'plausible_pending') {
+    return 0.85
+  }
+  return null
+}
+
+function computeReadinessScore(params: {
+  entities: number | null
+  maxEntities: number
+  eventSupported: number
+  eventTotal: number
+  richnessSupported: number
+  richnessTotal: number
+  integrationStatus: DashboardTsp['integrationStatus']
+  providerSlug: string | null
+  mappingConfidence: DashboardTsp['providerMappingConfidence']
+}): number | null {
+  const {
+    entities,
+    maxEntities,
+    eventSupported,
+    eventTotal,
+    richnessSupported,
+    richnessTotal,
+    integrationStatus,
+    providerSlug,
+    mappingConfidence,
+  } = params
+
+  if (integrationStatus !== 'integrated' || !providerSlug) {
+    return null
+  }
+  const modifier = confidenceModifier(mappingConfidence)
+  if (modifier === null) {
+    return null
+  }
+  if (
+    entities === null ||
+    !Number.isFinite(entities) ||
+    entities < 0 ||
+    !Number.isFinite(maxEntities) ||
+    maxEntities <= 0 ||
+    eventTotal <= 0 ||
+    richnessTotal <= 0
+  ) {
+    return null
+  }
+
+  const breadthScore = (eventSupported / eventTotal) * 100
+  const richnessScore = (richnessSupported / richnessTotal) * 100
+  const scaleScore = Math.sqrt(entities / maxEntities) * 100
+  const matrixScore = Math.sqrt(breadthScore * richnessScore)
+  const baseScore = 0.7 * matrixScore + 0.3 * scaleScore
+  return clampScore0to100(Math.round(baseScore * modifier))
+}
+
+const EVENT_TOTAL_LABELS = countTotalLabels(EVENT_ALARM_GROUPS)
+const RICHNESS_TOTAL_LABELS = countTotalLabels(DATA_RICHNESS_GROUPS)
+
+const MAX_ENTITIES_AMONG_INTEGRATED = DASHBOARD_TSPS.reduce((max, tsp) => {
+  if (tsp.integrationStatus !== 'integrated') {
+    return max
+  }
+  const entities = CURATED_TRUTH_BY_TSP[tsp.id]?.entityMock ?? null
+  if (entities === null || !Number.isFinite(entities) || entities <= 0) {
+    return max
+  }
+  return Math.max(max, entities)
+}, 0)
+
+export const CURATED_RISK_INDEX_VALUES: Record<string, ScalarCell> = Object.fromEntries(
+  DASHBOARD_TSPS.map((tsp) => {
+    const eventCell = CURATED_EVENT_SUPPORT_VALUES[tsp.id]
+    const richnessCell = CURATED_DATA_RICHNESS_VALUES[tsp.id]
+    const entities = CURATED_ENTITY_MOCK_VALUES[tsp.id]?.value ?? null
+    const score =
+      eventCell && richnessCell
+        ? computeReadinessScore({
+            entities,
+            maxEntities: MAX_ENTITIES_AMONG_INTEGRATED,
+            eventSupported: eventCell.summary,
+            eventTotal: EVENT_TOTAL_LABELS,
+            richnessSupported: richnessCell.summary,
+            richnessTotal: RICHNESS_TOTAL_LABELS,
+            integrationStatus: tsp.integrationStatus,
+            providerSlug: tsp.providerSlug,
+            mappingConfidence: tsp.providerMappingConfidence,
+          })
+        : null
+    return [tsp.id, { kind: 'scalar', value: score }]
+  }),
+)
 
 export const CURATED_ENTITY_MOCK_VALUES: Record<string, ScalarCell> =
   Object.fromEntries(

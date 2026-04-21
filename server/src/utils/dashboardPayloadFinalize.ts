@@ -12,22 +12,49 @@ function isPendingIntegration(tsp: TspLike): boolean {
   return tsp.integrationStatus === 'pending_integration'
 }
 
+const PROVIDER_READINESS_METRIC_ID = 'metric-risk-index'
+
+function readProviderReadinessScores(
+  metrics: DashboardPayload['metrics'],
+): Record<string, number | null> {
+  const m = metrics.find(
+    (x) => x.id === PROVIDER_READINESS_METRIC_ID && x.type === 'scalar',
+  )
+  if (!m || m.type !== 'scalar') {
+    return {}
+  }
+  const out: Record<string, number | null> = {}
+  for (const [tspId, cell] of Object.entries(m.values)) {
+    out[tspId] = cell.value
+  }
+  return out
+}
+
+function isFiniteScore(v: number | null | undefined): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
 /**
- * Column order for the TSP comparison matrix:
- * 1. All integrated columns first (non-`pending_integration`), A–Z by visible display `name`.
- * 2. Then all `pending_integration` columns, A–Z by `name`.
- *
- * **Important (Cursor / config hygiene):** The raw mock payload still materializes curated
- * matrix cells per `DASHBOARD_TSPS` in `dashboardTruthSources.ts`. Without
- * `applyPendingIntegrationUnavailableState`, tools or merges could leave those curated values
- * attached to pending columns — always run finalize before returning the dashboard JSON.
+ * Column order: highest Provider Readiness Score first; equal scores → name A–Z;
+ * null/unavailable scores last; among those → name A–Z.
  */
-export function sortDashboardTsps<T extends TspLike>(tsps: T[]): T[] {
+export function sortDashboardTsps<T extends TspLike>(
+  tsps: T[],
+  readinessByTspId: Record<string, number | null>,
+): T[] {
   return [...tsps].sort((a, b) => {
-    const pa = isPendingIntegration(a) ? 1 : 0
-    const pb = isPendingIntegration(b) ? 1 : 0
-    if (pa !== pb) {
-      return pa - pb
+    const pa = readinessByTspId[a.id]
+    const pb = readinessByTspId[b.id]
+    const aHas = isFiniteScore(pa)
+    const bHas = isFiniteScore(pb)
+    if (aHas !== bHas) {
+      return aHas ? -1 : 1
+    }
+    if (aHas && bHas) {
+      const diff = pb - pa
+      if (diff !== 0) {
+        return diff > 0 ? 1 : -1
+      }
     }
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
   })
@@ -90,6 +117,7 @@ type MutableDashboardPayload = {
 
 export function finalizeDashboardPayload(payload: DashboardPayload): void {
   const mutable = payload as unknown as MutableDashboardPayload
-  mutable.tsps = sortDashboardTsps(mutable.tsps)
+  const scores = readProviderReadinessScores(payload.metrics)
+  mutable.tsps = sortDashboardTsps(mutable.tsps, scores)
   applyPendingIntegrationUnavailableState(payload)
 }

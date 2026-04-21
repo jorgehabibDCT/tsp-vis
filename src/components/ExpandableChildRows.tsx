@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import type { ExpandableMetricRow, Tsp } from '../types/dashboard'
 import { eventLabelCoverageBandClass } from '../utils/eventLabelCoverageBands'
 import { formatInteger } from '../utils/format'
+import { friendlyEventLabelTitle } from '../utils/eventLabelFriendlyNames'
 
 type ExpandableChildRowsProps = {
   metric: ExpandableMetricRow
@@ -67,7 +68,18 @@ export function ExpandableChildRows({
                 scope="row"
                 className="comparison-table__label comparison-table__label--detail"
               >
-                {label.name}
+                {isEventLabelsMetric ? (
+                  <span className="comparison-table__event-label-wrap">
+                    <strong className="comparison-table__event-label-title">
+                      {friendlyEventLabelTitle(label.id)}
+                    </strong>{' '}
+                    <span className="comparison-table__event-label-code">
+                      ({label.id})
+                    </span>
+                  </span>
+                ) : (
+                  label.name
+                )}
               </th>
               {tsps.map((tsp) => {
                 const v = valueForLabel(

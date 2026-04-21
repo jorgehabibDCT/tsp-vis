@@ -5,6 +5,19 @@ import {
   type PegasusThemesSourceLabel,
 } from './pegasusThemePreferencesFromUserBody.js'
 
+function traceEnabled(): boolean {
+  return process.env.PEGASUS_THEME_TRACE === '1'
+}
+
+function trace(message: string, detail?: Record<string, unknown>): void {
+  if (!traceEnabled()) return
+  if (detail) {
+    console.info(`[pegasus/theme-upstream] ${message}`, detail)
+  } else {
+    console.info(`[pegasus/theme-upstream] ${message}`)
+  }
+}
+
 /**
  * Pegasus app settings endpoint for embedded app theme (override via `PEGASUS_THEME_APPS_PATH`).
  * Default: `/api/apps/pegasus2.0`
@@ -62,6 +75,12 @@ export async function fetchPegasusThemePreferencesFromUpstream(
 
   const base = site.replace(/\/$/, '')
   const url = `${base}${path}`
+  trace('calling pegasus apps endpoint', {
+    baseConfigured: true,
+    path,
+    hasToken: token.length > 0,
+    usesAuthenticateHeader: true,
+  })
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), fetchTimeoutMs())

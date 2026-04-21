@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { Tsp } from '../types/dashboard'
 import type { TspComparisonResponse } from '../contracts/tspComparison'
-import { sortDashboardTsps } from '../utils/dashboardPayloadFinalize'
+import { METRIC_ID_INTEGRATION_PERCENT } from '../constants/uiMetricIds'
+import {
+  readProviderReadinessScores,
+  sortDashboardTsps,
+} from '../utils/dashboardPayloadFinalize'
 import { MetricRow } from './MetricRow'
 
 type ComparisonTableProps = {
@@ -22,8 +26,14 @@ function tspHeaderClassName(tsp: Tsp): string {
 export function ComparisonTable({ model }: ComparisonTableProps) {
   const [expandedMetricId, setExpandedMetricId] = useState<string | null>(null)
   const tsps = useMemo(
-    () => sortDashboardTsps(model.tsps),
-    [model.tsps],
+    () =>
+      sortDashboardTsps(model.tsps, readProviderReadinessScores(model.metrics)),
+    [model.metrics, model.tsps],
+  )
+
+  const visibleMetrics = useMemo(
+    () => model.metrics.filter((m) => m.id !== METRIC_ID_INTEGRATION_PERCENT),
+    [model.metrics],
   )
 
   function toggleExpandable(id: string) {
@@ -34,7 +44,7 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
     <div
       className="comparison-scroll"
       role="region"
-      aria-label="TSP comparison table"
+      aria-label="Provider comparison matrix"
     >
       <table className="comparison-table">
         <thead className="comparison-table__thead">
@@ -82,7 +92,7 @@ export function ComparisonTable({ model }: ComparisonTableProps) {
           </tr>
         </thead>
         <tbody>
-          {model.metrics.map((metric) => (
+          {visibleMetrics.map((metric) => (
             <MetricRow
               key={metric.id}
               metric={metric}

@@ -101,7 +101,13 @@ export async function initPegasusTheme(): Promise<void> {
   applyThemeTokens('light')
   logPegasusTheme('embedded: provisional light while theme resolves')
 
+  const params = new URLSearchParams(window.location.search)
+  const hadUrlToken = Boolean(params.get('access_token') || params.get('auth'))
   const token = getBearerToken() ?? captureTokenFromUrlOnce()
+  logPegasusTheme('token capture', {
+    hadUrlToken,
+    hasBearerToken: Boolean(token),
+  })
 
   let mode: AppTheme | null = null
 

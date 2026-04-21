@@ -54,6 +54,7 @@ export async function loadDashboardData(): Promise<LoadDashboardDataResult> {
 
   try {
     const data = await fetchTspComparisonDashboard(base)
+    finalizeDashboardPayload(data)
     return { ok: true, data, source: 'remote' }
   } catch (e) {
     const message =

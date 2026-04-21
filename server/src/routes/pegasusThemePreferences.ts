@@ -1,6 +1,19 @@
 import { Router, type Request, type Response } from 'express'
 import { fetchPegasusThemePreferencesFromUpstream } from '../pegasus/fetchPegasusThemePreferencesFromUpstream.js'
 
+function traceEnabled(): boolean {
+  return process.env.PEGASUS_THEME_TRACE === '1'
+}
+
+function trace(message: string, detail?: Record<string, unknown>): void {
+  if (!traceEnabled()) return
+  if (detail) {
+    console.info(`[pegasus/theme-route] ${message}`, detail)
+  } else {
+    console.info(`[pegasus/theme-route] ${message}`)
+  }
+}
+
 function parseBearerToken(req: Request): string | null {
   const raw = req.headers.authorization
   if (typeof raw !== 'string') return null
@@ -22,6 +35,10 @@ export function pegasusThemePreferencesRouter(): Router {
 
     const token = parseBearerToken(req)
     const siteConfigured = Boolean(process.env.PEGASUS_SITE?.trim())
+    trace('request received', {
+      hasAuthorizationBearer: Boolean(token),
+      pegasusSiteConfigured: siteConfigured,
+    })
 
     if (!token) {
       res.json({ ok: true, preferences: null, source: 'no_token' })
@@ -37,6 +54,15 @@ export function pegasusThemePreferencesRouter(): Router {
       const result = await fetchPegasusThemePreferencesFromUpstream(token)
       const prefs = result.preferences
       const hasPreferences = prefs != null
+      trace('upstream completed', {
+        upstreamOk: result.upstreamOk,
+        upstreamHttpStatus: result.upstreamHttpStatus,
+        upstreamPath: result.path,
+        themesSource: result.themesSource,
+        dataThemesFound: result.dataThemesFound,
+        hasPreferences,
+        dark: prefs?.dark ?? null,
+      })
 
       const responseSource: 'pegasus' | 'empty' | 'upstream_error' = !result.upstreamOk
         ? 'upstream_error'

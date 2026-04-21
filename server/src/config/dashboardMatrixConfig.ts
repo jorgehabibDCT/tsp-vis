@@ -38,23 +38,92 @@ const PEND = 'pending_integration' as const
  * Additional columns from `TSP Data Apr 20 2026 Audit.csv` `properties_tag` values not already covered by branded rows.
  * Display names are short labels for the matrix (not legal entity names).
  */
-const CSV_ONLY_BUCKET_COLUMNS: { id: string; name: string; providerSlug: string }[] = [
-  { id: 'tsp-csv-arrendamex', name: 'Arrendamex', providerSlug: 'arrendamex' },
-  { id: 'tsp-csv-fleetup', name: 'Fleetup', providerSlug: 'fleetup' },
-  { id: 'tsp-csv-ftr', name: 'FTR', providerSlug: 'ftr' },
-  { id: 'tsp-csv-geotrucks', name: 'Geotrucks', providerSlug: 'geotrucks' },
-  { id: 'tsp-csv-innovalinks', name: 'Innovalinks', providerSlug: 'innovalinks' },
-  { id: 'tsp-csv-logitrack', name: 'Logitrack', providerSlug: 'logitrack' },
-  { id: 'tsp-csv-lojack', name: 'LoJack', providerSlug: 'lojack' },
-  { id: 'tsp-csv-motum', name: 'Motum', providerSlug: 'motum' },
-  { id: 'tsp-csv-numaris', name: 'Numaris', providerSlug: 'numaris' },
-  { id: 'tsp-csv-queclink', name: 'Queclink', providerSlug: 'queclink' },
+const CSV_ONLY_BUCKET_COLUMNS: {
+  id: string
+  name: string
+  providerSlug: string
+  logoUrl?: string | null
+}[] = [
+  {
+    id: 'tsp-csv-arrendamex',
+    name: 'Arrendamex',
+    providerSlug: 'arrendamex',
+    logoUrl: 'https://arrendamex.com.mx/_astro/logo_arrendamex.23WWfAWC.png',
+  },
+  {
+    id: 'tsp-csv-fleetup',
+    name: 'Fleetup',
+    providerSlug: 'fleetup',
+    logoUrl:
+      'https://fleetup.com/wp-content/themes/fleetup/dist/images/fleetup-logo.svg',
+  },
+  {
+    id: 'tsp-csv-ftr',
+    name: 'FTR',
+    providerSlug: 'ftr',
+    logoUrl:
+      'https://www.ftrintel.com/hs-fs/hubfs/FTR%20Logos%20and%20Icons/FTR_Logo_Primary_DarkBackground.png?width=650&height=180&name=FTR_Logo_Primary_DarkBackground.png',
+  },
+  {
+    id: 'tsp-csv-geotrucks',
+    name: 'Geotrucks',
+    providerSlug: 'geotrucks',
+    logoUrl: 'https://en.geotrucks.com/ima/logo-light.svg',
+  },
+  {
+    id: 'tsp-csv-innovalinks',
+    name: 'Innovalinks',
+    providerSlug: 'innovalinks',
+    logoUrl: 'https://www.innovalinks.com/imgs/InnovaLinks.png',
+  },
+  {
+    id: 'tsp-csv-logitrack',
+    name: 'Logitrack',
+    providerSlug: 'logitrack',
+    logoUrl: 'https://img.logitrack.mx/dct/logoltD_2.png',
+  },
+  {
+    id: 'tsp-csv-lojack',
+    name: 'LoJack',
+    providerSlug: 'lojack',
+    logoUrl: 'https://www.lojack.com/wp-content/uploads/2023/05/logo-rgb-1.png',
+  },
+  {
+    id: 'tsp-csv-motum',
+    name: 'Motum',
+    providerSlug: 'motum',
+    logoUrl: 'https://telematics.tecnomotum.com/assets/img/login-brand.svg',
+  },
+  {
+    id: 'tsp-csv-numaris',
+    name: 'Numaris',
+    providerSlug: 'numaris',
+    logoUrl:
+      'https://cdn.prod.website-files.com/677db901a978f3d313090945/679055231f82688fdcefbd6f_LogotipoN.svg',
+  },
+  {
+    id: 'tsp-csv-queclink',
+    name: 'Queclink',
+    providerSlug: 'queclink',
+    logoUrl: 'https://www.queclink.com/wp-content/uploads/2020/06/logo-0629.png',
+  },
   { id: 'tsp-csv-rec', name: 'Rec', providerSlug: 'rec' },
-  { id: 'tsp-csv-resser', name: 'Resser', providerSlug: 'resser' },
+  { id: 'tsp-csv-resser', name: 'Resser', providerSlug: 'resser', logoUrl: 'https://resser.com/wp-content/uploads/2024/03/logo-resser.png' },
   { id: 'tsp-csv-samsara', name: 'Samsara', providerSlug: 'samsara' },
   { id: 'tsp-csv-sitrack', name: 'Sitrack', providerSlug: 'sitrack' },
-  { id: 'tsp-csv-traffilog', name: 'Traffilog', providerSlug: 'traffilog' },
-  { id: 'tsp-csv-ubicamovil', name: 'Ubicamovil', providerSlug: 'ubicamovil' },
+  {
+    id: 'tsp-csv-traffilog',
+    name: 'Traffilog',
+    providerSlug: 'traffilog',
+    logoUrl:
+      'https://telematicswire.net/wp-content/uploads/2021/11/Traffilog_Logo_RGB-web-1.png',
+  },
+  {
+    id: 'tsp-csv-ubicamovil',
+    name: 'Ubicamovil',
+    providerSlug: 'ubicamovil',
+    logoUrl: 'https://landingpage-ubicamovil.s3.amazonaws.com/logo-ubicamovil.png',
+  },
 ]
 
 export const DASHBOARD_TSPS: DashboardTsp[] = [
@@ -222,7 +291,7 @@ export const DASHBOARD_TSPS: DashboardTsp[] = [
   ...CSV_ONLY_BUCKET_COLUMNS.map((c) => ({
     id: c.id,
     name: c.name,
-    logoUrl: null,
+    logoUrl: c.logoUrl ?? null,
     providerSlug: c.providerSlug,
     providerMappingConfidence: 'confident' as const,
     integrationStatus: INT,

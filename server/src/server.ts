@@ -2,6 +2,7 @@ import cors from 'cors'
 import express from 'express'
 import { getAllowedOriginSet } from './cors.js'
 import { dashboardRouter } from './routes/dashboard.js'
+import { pegasusThemePreferencesRouter } from './routes/pegasusThemePreferences.js'
 
 const PORT = Number(process.env.PORT) || 4000
 
@@ -22,6 +23,7 @@ app.use(
 )
 
 app.use('/api/dashboard', dashboardRouter)
+app.use('/api/v1', pegasusThemePreferencesRouter())
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true })

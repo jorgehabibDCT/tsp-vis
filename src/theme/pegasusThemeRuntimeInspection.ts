@@ -5,7 +5,12 @@
  */
 
 import { getApiBaseUrl } from '../api'
+import { captureTokenFromUrlOnce, getBearerToken } from '../auth/memoryToken'
 import { isPegasusThemeDebugEnabled } from './pegasusThemeDebugFlag'
+import {
+  extractPegasusThemePreferencesWithSource,
+  resolvePegasusThemeModeFromPrefs,
+} from './pegasusAppsThemeExtract'
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/$/, '')
@@ -117,7 +122,7 @@ function nestedKeySample(value: unknown, depth = 0): Record<string, unknown> {
   return sample
 }
 
-/** Same candidate paths as resolvePegasusTheme (for comparison). */
+/** Legacy speculative paths (not used by production theme — kept for payload comparison). */
 function candidateThemeValues(meta: unknown): {
   path: string
   value: unknown
@@ -300,17 +305,12 @@ export async function runPegasusThemeRuntimeInspection(): Promise<void> {
         '[pegasus/theme-debug] nested sample (shallow)',
         nestedKeySample(parsed),
       )
-      console.debug(
-        '[pegasus/theme-debug] candidate paths vs current resolver',
-        candidateThemeValues(parsed),
-      )
-      const firstGuess = candidateThemeValues(parsed).find(
-        (c) => c.tokenGuess !== null,
-      )
-      console.debug('[pegasus/theme-debug] first resolver match (if any)', {
-        path: firstGuess?.path ?? null,
-        value: firstGuess?.value ?? null,
-        tokenGuess: firstGuess?.tokenGuess ?? null,
+      console.debug('[pegasus/theme-debug] legacy candidate paths', candidateThemeValues(parsed))
+      const ext = extractPegasusThemePreferencesWithSource(parsed)
+      console.debug('[pegasus/theme-debug] proto themes-bag extraction', {
+        themesSource: ext.themesSource,
+        preferences: ext.preferences,
+        resolvedMode: resolvePegasusThemeModeFromPrefs(ext.preferences),
       })
     } else {
       console.debug('[pegasus/theme-debug] body preview', text.slice(0, 500))
@@ -321,8 +321,34 @@ export async function runPegasusThemeRuntimeInspection(): Promise<void> {
     })
   }
 
-  section('9) Summary')
+  section('9) GET /api/v1/pegasus/theme-preferences (when VITE_API_URL + token)')
+  const tok = getBearerToken() ?? captureTokenFromUrlOnce()
+  if (apiBase && tok) {
+    const tp = `${apiBase}/api/v1/pegasus/theme-preferences`
+    console.debug('[pegasus/theme-debug] theme-preferences URL', tp)
+    try {
+      const res = await fetch(tp, {
+        cache: 'no-store',
+        headers: { Accept: 'application/json', Authorization: `Bearer ${tok}` },
+      })
+      const body = (await res.json().catch(() => null)) as Record<string, unknown> | null
+      console.debug('[pegasus/theme-debug] theme-preferences response', {
+        ok: res.ok,
+        status: res.status,
+        source: body?.source,
+        preferences: body?.preferences,
+      })
+    } catch (e) {
+      console.debug('[pegasus/theme-debug] theme-preferences fetch threw', {
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  } else {
+    console.debug('[pegasus/theme-debug] skip theme-preferences (need VITE_API_URL and auth token)')
+  }
+
+  section('10) Summary')
   console.debug(
-    '[pegasus/theme-debug] Done. Compare candidate paths to actual Pegasus payload; extend resolver only after confirming real keys.',
+    '[pegasus/theme-debug] Production uses `data.themes` / `data.user.themes` / … → `themes.dark` (proto BFF extraction). Prefer GET /api/v1/pegasus/theme-preferences with Bearer when VITE_API_URL is set; else same-origin /api/apps/pegasus2.0 with Authenticate header.',
   )
 }

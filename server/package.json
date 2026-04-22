@@ -10,7 +10,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "audit:influx": "tsx src/scripts/auditInfluxBucket.ts"
+    "audit:influx": "tsx src/scripts/auditInfluxBucket.ts",
+    "test": "node ../node_modules/vitest/vitest.mjs run --config vitest.config.ts"
   },
   "dependencies": {
     "@influxdata/influxdb-client": "^1.35.0",

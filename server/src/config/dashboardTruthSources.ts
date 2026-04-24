@@ -162,7 +162,6 @@ const CSV_BUCKET_TSP_IDS = [
   'tsp-csv-lojack',
   'tsp-csv-motum',
   'tsp-csv-numaris',
-  'tsp-csv-queclink',
   'tsp-csv-rec',
   'tsp-csv-resser',
   'tsp-csv-samsara',

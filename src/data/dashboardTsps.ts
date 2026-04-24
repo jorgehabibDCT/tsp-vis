@@ -33,7 +33,6 @@ export const MOCK_DASHBOARD_TSPS: Tsp[] = [
   { id: 'tsp-csv-lojack', name: 'LoJack', logoUrl: 'https://www.lojack.com/wp-content/uploads/2023/05/logo-rgb-1.png', integrationStatus: 'integrated' },
   { id: 'tsp-csv-motum', name: 'Motum', logoUrl: 'https://telematics.tecnomotum.com/assets/img/login-brand.svg', integrationStatus: 'integrated' },
   { id: 'tsp-csv-numaris', name: 'Numaris', logoUrl: 'https://cdn.prod.website-files.com/677db901a978f3d313090945/679055231f82688fdcefbd6f_LogotipoN.svg', integrationStatus: 'integrated' },
-  { id: 'tsp-csv-queclink', name: 'Queclink', logoUrl: 'https://www.queclink.com/wp-content/uploads/2020/06/logo-0629.png', integrationStatus: 'integrated' },
   { id: 'tsp-csv-rec', name: 'Rec', logoUrl: null, integrationStatus: 'integrated' },
   { id: 'tsp-csv-resser', name: 'Resser', logoUrl: 'https://resser.com/wp-content/uploads/2024/03/logo-resser.png', integrationStatus: 'integrated' },
   { id: 'tsp-csv-samsara', name: 'Samsara', logoUrl: null, integrationStatus: 'integrated' },

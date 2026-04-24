@@ -101,12 +101,6 @@ const CSV_ONLY_BUCKET_COLUMNS: {
     logoUrl:
       'https://cdn.prod.website-files.com/677db901a978f3d313090945/679055231f82688fdcefbd6f_LogotipoN.svg',
   },
-  {
-    id: 'tsp-csv-queclink',
-    name: 'Queclink',
-    providerSlug: 'queclink',
-    logoUrl: 'https://www.queclink.com/wp-content/uploads/2020/06/logo-0629.png',
-  },
   { id: 'tsp-csv-rec', name: 'Rec', providerSlug: 'rec' },
   { id: 'tsp-csv-resser', name: 'Resser', providerSlug: 'resser', logoUrl: 'https://resser.com/wp-content/uploads/2024/03/logo-resser.png' },
   { id: 'tsp-csv-samsara', name: 'Samsara', providerSlug: 'samsara' },

@@ -96,10 +96,6 @@ export const TSP_PROVIDER_META: Record<
     providerSlug: 'numaris',
     providerMappingConfidence: 'confident',
   },
-  'tsp-csv-queclink': {
-    providerSlug: 'queclink',
-    providerMappingConfidence: 'confident',
-  },
   'tsp-csv-rec': { providerSlug: 'rec', providerMappingConfidence: 'confident' },
   'tsp-csv-resser': {
     providerSlug: 'resser',

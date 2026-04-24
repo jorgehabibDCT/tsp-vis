@@ -23,8 +23,7 @@ export function ExpandableMetricRow({
   detailsId,
 }: ExpandableMetricRowProps) {
   const isSupportMatrix = metric.kind === 'support'
-  const isMeterMetric =
-    metric.id === 'metric-events-alarms' || metric.id === 'metric-data-richness'
+  const isMeterMetric = metric.id === 'metric-data-richness'
   const totalLabels = metric.structure.groups.reduce(
     (acc, g) => acc + g.labels.length,
     0,
@@ -73,43 +72,16 @@ export function ExpandableMetricRow({
               frac = `${raw}/${totalLabels}`
             }
 
-            if (frac === null) {
-              display = '—'
-            } else {
-              const bars = computeFilledBars(
-                rollup?.supportedCount ?? raw,
-                rollup?.totalLabels ?? totalLabels,
-              )
-              display = (
-                <span className="comparison-table__fraction-meter">
-                  <span
-                    className={`comparison-table__stat-meter comparison-table__stat-meter--events`}
-                    role="img"
-                    aria-label={`${frac} coverage`}
-                  >
-                    {Array.from({ length: 5 }).map((_, idx) => {
-                      const isOn = idx < bars
-                      return (
-                        <span
-                          key={idx}
-                          className={`comparison-table__stat-meter-segment${
-                            isOn
-                              ? ' comparison-table__stat-meter-segment--on'
-                              : ''
-                          }`}
-                          aria-hidden="true"
-                        />
-                      )
-                    })}
-                  </span>
-                  <span
-                    className={`comparison-table__event-label-fraction ${fracCls}`}
-                  >
-                    {frac}
-                  </span>
+            display =
+              frac === null ? (
+                '—'
+              ) : (
+                <span
+                  className={`comparison-table__event-label-fraction ${fracCls}`}
+                >
+                  {frac}
                 </span>
               )
-            }
           }
         } else if (isSupportMatrix) {
           if (raw === null || Number.isNaN(raw)) {
@@ -118,14 +90,10 @@ export function ExpandableMetricRow({
             const frac = `${raw}/${totalLabels}`
             if (isMeterMetric) {
               const bars = computeFilledBars(raw, totalLabels)
-              const accentClass =
-                metric.id === 'metric-data-richness'
-                  ? 'comparison-table__stat-meter--richness'
-                  : 'comparison-table__stat-meter--events'
               display = (
                 <span className="comparison-table__fraction-meter">
                   <span
-                    className={`comparison-table__stat-meter ${accentClass}`}
+                    className="comparison-table__stat-meter comparison-table__stat-meter--richness"
                     role="img"
                     aria-label={`${frac} coverage`}
                   >

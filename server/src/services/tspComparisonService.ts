@@ -148,22 +148,27 @@ export async function buildTspComparisonDashboardMerged(
   }
 
   if (hasCohorts && entitiesQuerySucceeded) {
-    try {
-      internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
-        entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0
-      const nonTeltonikaEntityCounts =
-        await fetchDistinctEntityCountsByVidCohort(cohortVidsForInflux)
-      internalCohortEntityCounts = {
-        ...internalCohortEntityCounts,
-        ...nonTeltonikaEntityCounts,
+    // Explicitly alias provider-native teltonika -> internal cohort column.
+    internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
+      entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0
+    console.log(
+      `[tspComparison] Teltonika entity alias provider=${TELTONIKA_PROVIDER_SLUG} count=${internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG]}`,
+    )
+
+    for (const cohortSlug of Object.keys(cohortVidsForInflux)) {
+      try {
+        const singleCohortCounts = await fetchDistinctEntityCountsByVidCohort({
+          [cohortSlug]: cohortVidsForInflux[cohortSlug] ?? new Set<string>(),
+        })
+        internalCohortEntityCounts[cohortSlug] = singleCohortCounts[cohortSlug] ?? 0
+      } catch (e) {
+        console.warn(
+          `[tspComparison] Cohort entity enrichment failed cohort=${cohortSlug}; continuing`,
+          e,
+        )
       }
-      mergeInternalHardwareEntityCounts(payload, internalCohortEntityCounts)
-    } catch (e) {
-      console.warn(
-        '[tspComparison] Cohort entity enrichment failed; keeping baseline provider entities',
-        e,
-      )
     }
+    mergeInternalHardwareEntityCounts(payload, internalCohortEntityCounts)
   }
 
   let eventLabelsQuerySucceeded = false
@@ -199,47 +204,68 @@ export async function buildTspComparisonDashboardMerged(
   // Keep cohort enrichment best-effort so cohort timeouts do not regress
   // baseline provider entities/event-labels for the whole dashboard response.
   if (hasCohorts && entitiesQuerySucceeded && eventLabelsQuerySucceeded) {
-    try {
-      internalCohortLabelCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
-        labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {}
-      const nonTeltonikaLabelCounts =
-        await fetchDistinctVehicleCountByLabelForVidCohort(cohortVidsForInflux)
-      internalCohortLabelCounts = {
-        ...internalCohortLabelCounts,
-        ...nonTeltonikaLabelCounts,
-      }
+    internalCohortLabelCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
+      labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {}
 
+    for (const cohortSlug of Object.keys(cohortVidsForInflux)) {
+      try {
+        const singleCohortLabelCounts = await fetchDistinctVehicleCountByLabelForVidCohort(
+          {
+            [cohortSlug]: cohortVidsForInflux[cohortSlug] ?? new Set<string>(),
+          },
+        )
+        internalCohortLabelCounts[cohortSlug] =
+          singleCohortLabelCounts[cohortSlug] ?? {}
+      } catch (e) {
+        console.warn(
+          `[tspComparison] Cohort event-label enrichment failed cohort=${cohortSlug}; continuing`,
+          e,
+        )
+      }
+    }
+
+    try {
       internalCohortRichnessCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
         await fetchDistinctVehicleCountByRichnessFieldForProvider(
           TELTONIKA_PROVIDER_SLUG,
         )
-      const nonTeltonikaRichnessCounts =
-        await fetchDistinctVehicleCountByRichnessFieldForVidCohort(
-          cohortVidsForInflux,
-        )
-      internalCohortRichnessCounts = {
-        ...internalCohortRichnessCounts,
-        ...nonTeltonikaRichnessCounts,
-      }
-      mergeInternalHardwareRichnessCoverage(
-        payload,
-        internalCohortEntityCounts,
-        internalCohortRichnessCounts,
-      )
-
-      mergeEventLabelVehicleCoverageIntoPayload(
-        payload,
-        { ...entityCountByProvider, ...internalCohortEntityCounts },
-        { ...labelVidByProviderBase, ...internalCohortLabelCounts },
-        slugByTspId,
-        tspNameById,
-      )
     } catch (e) {
       console.warn(
-        '[tspComparison] Cohort enrichment failed; keeping baseline provider entities/event labels',
+        `[tspComparison] Cohort richness enrichment failed cohort=${TELTONIKA_INTERNAL_COHORT_SLUG}; continuing`,
         e,
       )
+      internalCohortRichnessCounts[TELTONIKA_INTERNAL_COHORT_SLUG] = {}
     }
+
+    for (const cohortSlug of Object.keys(cohortVidsForInflux)) {
+      try {
+        const singleCohortRichnessCounts =
+          await fetchDistinctVehicleCountByRichnessFieldForVidCohort({
+            [cohortSlug]: cohortVidsForInflux[cohortSlug] ?? new Set<string>(),
+          })
+        internalCohortRichnessCounts[cohortSlug] =
+          singleCohortRichnessCounts[cohortSlug] ?? {}
+      } catch (e) {
+        console.warn(
+          `[tspComparison] Cohort richness enrichment failed cohort=${cohortSlug}; continuing`,
+          e,
+        )
+      }
+    }
+
+    mergeInternalHardwareRichnessCoverage(
+      payload,
+      internalCohortEntityCounts,
+      internalCohortRichnessCounts,
+    )
+
+    mergeEventLabelVehicleCoverageIntoPayload(
+      payload,
+      { ...entityCountByProvider, ...internalCohortEntityCounts },
+      { ...labelVidByProviderBase, ...internalCohortLabelCounts },
+      slugByTspId,
+      tspNameById,
+    )
   } else if (hasCohorts) {
     console.warn(
       `[tspComparison] Cohort enrichment skipped entitiesOk=${entitiesQuerySucceeded} eventLabelsOk=${eventLabelsQuerySucceeded}`,

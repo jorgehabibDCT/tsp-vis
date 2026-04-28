@@ -139,7 +139,16 @@ export async function buildTspComparisonDashboardMerged(
       { ...entityCountByProvider, ...internalCohortEntityCounts },
       slugByTspId,
     )
-    if (hasCohorts) {
+    entitiesQuerySucceeded = true
+  } catch (e) {
+    console.warn(
+      '[tspComparison] Influx entity aggregation failed; leaving Number of Entities mock',
+      e,
+    )
+  }
+
+  if (hasCohorts && entitiesQuerySucceeded) {
+    try {
       internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
         entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0
       const nonTeltonikaEntityCounts =
@@ -149,20 +158,48 @@ export async function buildTspComparisonDashboardMerged(
         ...nonTeltonikaEntityCounts,
       }
       mergeInternalHardwareEntityCounts(payload, internalCohortEntityCounts)
+    } catch (e) {
+      console.warn(
+        '[tspComparison] Cohort entity enrichment failed; keeping baseline provider entities',
+        e,
+      )
     }
-    entitiesQuerySucceeded = true
+  }
+
+  let eventLabelsQuerySucceeded = false
+  let labelVidByProviderBase: Record<string, Record<string, number>> = {}
+  try {
+    labelVidByProviderBase = await port.fetchDistinctVehicleCountByProviderAndLabel()
+    const labelVidByProvider: Record<string, Record<string, number>> = {
+      ...labelVidByProviderBase,
+    }
+    const entityCountForEventMerge: Record<string, number> = {
+      ...entityCountByProvider,
+    }
+    logTspSlugMapVsInfluxProviders(
+      'event-labels',
+      slugByTspId,
+      Object.keys(labelVidByProvider),
+    )
+    mergeEventLabelVehicleCoverageIntoPayload(
+      payload,
+      entityCountForEventMerge,
+      labelVidByProvider,
+      slugByTspId,
+      tspNameById,
+    )
+    eventLabelsQuerySucceeded = true
   } catch (e) {
     console.warn(
-      '[tspComparison] Influx entity aggregation failed; leaving Number of Entities mock',
+      '[tspComparison] Influx distinct-vid event-label query failed; leaving Event labels / Alarms Info curated mock',
       e,
     )
   }
 
-  let eventLabelsQuerySucceeded = false
-  try {
-    const labelVidByProviderBase =
-      await port.fetchDistinctVehicleCountByProviderAndLabel()
-    if (hasCohorts) {
+  // Keep cohort enrichment best-effort so cohort timeouts do not regress
+  // baseline provider entities/event-labels for the whole dashboard response.
+  if (hasCohorts && entitiesQuerySucceeded && eventLabelsQuerySucceeded) {
+    try {
       internalCohortLabelCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
         labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {}
       const nonTeltonikaLabelCounts =
@@ -189,33 +226,23 @@ export async function buildTspComparisonDashboardMerged(
         internalCohortEntityCounts,
         internalCohortRichnessCounts,
       )
-    }
 
-    const labelVidByProvider: Record<string, Record<string, number>> = {
-      ...labelVidByProviderBase,
-      ...internalCohortLabelCounts,
+      mergeEventLabelVehicleCoverageIntoPayload(
+        payload,
+        { ...entityCountByProvider, ...internalCohortEntityCounts },
+        { ...labelVidByProviderBase, ...internalCohortLabelCounts },
+        slugByTspId,
+        tspNameById,
+      )
+    } catch (e) {
+      console.warn(
+        '[tspComparison] Cohort enrichment failed; keeping baseline provider entities/event labels',
+        e,
+      )
     }
-    const entityCountForEventMerge: Record<string, number> = {
-      ...entityCountByProvider,
-      ...internalCohortEntityCounts,
-    }
-    logTspSlugMapVsInfluxProviders(
-      'event-labels',
-      slugByTspId,
-      Object.keys(labelVidByProvider),
-    )
-    mergeEventLabelVehicleCoverageIntoPayload(
-      payload,
-      entityCountForEventMerge,
-      labelVidByProvider,
-      slugByTspId,
-      tspNameById,
-    )
-    eventLabelsQuerySucceeded = true
-  } catch (e) {
+  } else if (hasCohorts) {
     console.warn(
-      '[tspComparison] Influx distinct-vid event-label query failed; leaving Event labels / Alarms Info curated mock',
-      e,
+      `[tspComparison] Cohort enrichment skipped entitiesOk=${entitiesQuerySucceeded} eventLabelsOk=${eventLabelsQuerySucceeded}`,
     )
   }
 

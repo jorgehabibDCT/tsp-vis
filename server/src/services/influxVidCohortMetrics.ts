@@ -13,10 +13,10 @@ import {
 } from './dashboardInfluxDiagnostics.js'
 
 type VidSetByCohort = Record<string, Set<string>>
-const COHORT_DEBUG_SLUGS = new Set([
-  '__internal_teltonika',
-  '__internal_lynx',
-])
+
+function isCohortProbeEnabled(): boolean {
+  return process.env.COHORT_VID_PROBE?.trim() === '1'
+}
 
 function escapeFluxString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
@@ -49,7 +49,7 @@ async function probeSampleVidPresence(params: {
   range: string
 }): Promise<void> {
   const { slug, vids, bucket, measurement, range } = params
-  if (!COHORT_DEBUG_SLUGS.has(slug) || vids.length === 0) {
+  if (!isCohortProbeEnabled() || vids.length === 0) {
     return
   }
   const queryApi = getQueryApi()
@@ -116,6 +116,57 @@ from(bucket: "${bucket}")
   console.log(
     `[influx/cohort/probe] cohort=${slug} numeric_variant matched_vids=${variantMatched.size} row_count=${variantRows.length} variant_sample=${JSON.stringify(normalizedVariant)}`,
   )
+}
+
+export async function fetchDistinctVehicleCountByRichnessFieldForProvider(
+  providerSlug: string,
+): Promise<Record<string, number>> {
+  const mapping = proxyRichnessFields()
+  const proxyFields = [...new Set(Object.values(mapping))]
+  if (proxyFields.length === 0) {
+    return {}
+  }
+
+  const bucket = escapeFluxString(getInfluxBucket())
+  const measurement = escapeFluxString(getProvidersMeasurement())
+  const range = getInfluxEntityRange()
+  const fieldOrs = proxyFields
+    .map((f) => `r["_field"] == "${escapeFluxString(f)}"`)
+    .join(' or ')
+  const provider = escapeFluxString(providerSlug)
+  const queryApi = getQueryApi()
+  const flux = `
+from(bucket: "${bucket}")
+  |> range(start: ${range})
+  |> filter(fn: (r) => r["_measurement"] == "${measurement}")
+  |> filter(fn: (r) => exists r.provider)
+  |> filter(fn: (r) => r.provider == "${provider}")
+  |> filter(fn: (r) => ${fieldOrs})
+  |> filter(fn: (r) => exists r.vid)
+  |> filter(fn: (r) => r.vid != "")
+  |> keep(columns: ["_time", "_field", "vid"])
+  |> group(columns: ["_field", "vid"])
+  |> first(column: "_time")
+  |> group(columns: ["_field"])
+  |> count(column: "vid")
+`.trim()
+
+  const rows = await queryApi.collectRows(flux)
+  const out: Record<string, number> = {}
+  for (const row of rows) {
+    const rec = row as Record<string, unknown>
+    const fv = readFluxRowField(rec, '_field')
+    const field = fv != null ? String(fv) : ''
+    const n = parseFluxCountedColumn(rec, 'vid')
+    if (!field || !Number.isFinite(n)) {
+      continue
+    }
+    out[field] = n
+  }
+  console.log(
+    `[influx/cohort/richness-provider] provider=${providerSlug} fields=${Object.keys(out).length}`,
+  )
+  return out
 }
 
 function proxyRichnessFields(): Record<string, string> {

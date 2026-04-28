@@ -32,4 +32,7 @@ export const INTERNAL_HARDWARE_COLUMN_ORDER = INTERNAL_HARDWARE_COHORTS.map(
   (c) => c.id,
 )
 
+export const TELTONIKA_INTERNAL_COHORT_SLUG = '__internal_teltonika' as const
+export const TELTONIKA_PROVIDER_SLUG = 'teltonika' as const
+
 export type InternalHardwareCohort = (typeof INTERNAL_HARDWARE_COHORTS)[number]

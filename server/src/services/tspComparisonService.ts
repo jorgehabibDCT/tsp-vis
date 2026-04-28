@@ -4,7 +4,11 @@ import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
 import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { mergeEventLabelVehicleCoverageIntoPayload } from './mergeEventLabelDashboard.js'
 import { recomputeProviderReadinessScores } from '../utils/providerReadinessScore.js'
-import { INTERNAL_HARDWARE_COHORTS } from '../config/internalHardwareCohorts.js'
+import {
+  INTERNAL_HARDWARE_COHORTS,
+  TELTONIKA_INTERNAL_COHORT_SLUG,
+  TELTONIKA_PROVIDER_SLUG,
+} from '../config/internalHardwareCohorts.js'
 import {
   logTspSlugMapVsInfluxProviders,
   logDashboardBackendLiveVerification,
@@ -22,6 +26,7 @@ import {
   fetchDistinctEntityCountsByVidCohort,
   fetchDistinctVehicleCountByLabelForVidCohort,
   fetchDistinctVehicleCountByRichnessFieldForVidCohort,
+  fetchDistinctVehicleCountByRichnessFieldForProvider,
 } from './influxVidCohortMetrics.js'
 import {
   ensureInternalHardwareColumns,
@@ -77,9 +82,11 @@ export async function buildTspComparisonDashboardMerged(
   let internalCohortEntityCounts: Record<string, number> = {}
   let internalCohortLabelCounts: Record<string, Record<string, number>> = {}
   let internalCohortRichnessCounts: Record<string, Record<string, number>> = {}
+  let hasCohorts = false
+  let cohortVidsForInflux: Record<string, Set<string>> = {}
   try {
     const cohortVids = await fetchHardwareCohortVidSetsFromMongo()
-    const hasCohorts = INTERNAL_HARDWARE_COHORTS.some(
+    hasCohorts = INTERNAL_HARDWARE_COHORTS.some(
       (c) => (cohortVids[c.slug]?.size ?? 0) > 0,
     )
     const cohortVidCounts = Object.fromEntries(
@@ -93,20 +100,16 @@ export async function buildTspComparisonDashboardMerged(
       for (const cohort of INTERNAL_HARDWARE_COHORTS) {
         slugByTspId[cohort.id] = cohort.slug
       }
+      cohortVidsForInflux = Object.fromEntries(
+        Object.entries(cohortVids).filter(
+          ([slug]) => slug !== TELTONIKA_INTERNAL_COHORT_SLUG,
+        ),
+      )
       console.log(
         `[hardware-cohorts] injecting columns ids=${INTERNAL_HARDWARE_COHORTS.map((c) => c.id).join(',')}`,
       )
-      internalCohortEntityCounts =
-        await fetchDistinctEntityCountsByVidCohort(cohortVids)
-      internalCohortLabelCounts =
-        await fetchDistinctVehicleCountByLabelForVidCohort(cohortVids)
-      internalCohortRichnessCounts =
-        await fetchDistinctVehicleCountByRichnessFieldForVidCohort(cohortVids)
-      mergeInternalHardwareEntityCounts(payload, internalCohortEntityCounts)
-      mergeInternalHardwareRichnessCoverage(
-        payload,
-        internalCohortEntityCounts,
-        internalCohortRichnessCounts,
+      console.log(
+        `[hardware-cohorts] strategy teltonika=provider_native others=vid_join non_teltonika_slugs=${Object.keys(cohortVidsForInflux).join(',')}`,
       )
     } else {
       console.log('[hardware-cohorts] skip reason=no_nonempty_cohort_vid_sets')
@@ -136,6 +139,17 @@ export async function buildTspComparisonDashboardMerged(
       { ...entityCountByProvider, ...internalCohortEntityCounts },
       slugByTspId,
     )
+    if (hasCohorts) {
+      internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
+        entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0
+      const nonTeltonikaEntityCounts =
+        await fetchDistinctEntityCountsByVidCohort(cohortVidsForInflux)
+      internalCohortEntityCounts = {
+        ...internalCohortEntityCounts,
+        ...nonTeltonikaEntityCounts,
+      }
+      mergeInternalHardwareEntityCounts(payload, internalCohortEntityCounts)
+    }
     entitiesQuerySucceeded = true
   } catch (e) {
     console.warn(
@@ -148,6 +162,35 @@ export async function buildTspComparisonDashboardMerged(
   try {
     const labelVidByProviderBase =
       await port.fetchDistinctVehicleCountByProviderAndLabel()
+    if (hasCohorts) {
+      internalCohortLabelCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
+        labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {}
+      const nonTeltonikaLabelCounts =
+        await fetchDistinctVehicleCountByLabelForVidCohort(cohortVidsForInflux)
+      internalCohortLabelCounts = {
+        ...internalCohortLabelCounts,
+        ...nonTeltonikaLabelCounts,
+      }
+
+      internalCohortRichnessCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
+        await fetchDistinctVehicleCountByRichnessFieldForProvider(
+          TELTONIKA_PROVIDER_SLUG,
+        )
+      const nonTeltonikaRichnessCounts =
+        await fetchDistinctVehicleCountByRichnessFieldForVidCohort(
+          cohortVidsForInflux,
+        )
+      internalCohortRichnessCounts = {
+        ...internalCohortRichnessCounts,
+        ...nonTeltonikaRichnessCounts,
+      }
+      mergeInternalHardwareRichnessCoverage(
+        payload,
+        internalCohortEntityCounts,
+        internalCohortRichnessCounts,
+      )
+    }
+
     const labelVidByProvider: Record<string, Record<string, number>> = {
       ...labelVidByProviderBase,
       ...internalCohortLabelCounts,

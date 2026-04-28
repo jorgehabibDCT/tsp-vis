@@ -60,7 +60,9 @@ export function mergeInternalHardwareEntityCounts(
     const n = entityByCohortSlug[c.slug]
     values[c.id] = {
       kind: 'scalar',
-      value: Number.isFinite(n) ? n : null,
+      // Internal cohort entity materialization should stay stable/honest on
+      // partial enrichment failures: missing/failed counts render as 0, not null.
+      value: Number.isFinite(n) ? n : 0,
     }
   }
 }

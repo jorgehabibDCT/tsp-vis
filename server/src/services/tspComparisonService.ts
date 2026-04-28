@@ -82,6 +82,7 @@ export async function buildTspComparisonDashboardMerged(
   let internalCohortEntityCounts: Record<string, number> = {}
   let internalCohortLabelCounts: Record<string, Record<string, number>> = {}
   let internalCohortRichnessCounts: Record<string, Record<string, number>> = {}
+  const materializedEntityCohorts = new Set<string>()
   let hasCohorts = false
   let cohortVidsForInflux: Record<string, Set<string>> = {}
   try {
@@ -151,6 +152,7 @@ export async function buildTspComparisonDashboardMerged(
     // Explicitly alias provider-native teltonika -> internal cohort column.
     internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
       entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0
+    materializedEntityCohorts.add(TELTONIKA_INTERNAL_COHORT_SLUG)
     console.log(
       `[tspComparison] Teltonika entity alias provider=${TELTONIKA_PROVIDER_SLUG} count=${internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG]}`,
     )
@@ -161,6 +163,7 @@ export async function buildTspComparisonDashboardMerged(
           [cohortSlug]: cohortVidsForInflux[cohortSlug] ?? new Set<string>(),
         })
         internalCohortEntityCounts[cohortSlug] = singleCohortCounts[cohortSlug] ?? 0
+        materializedEntityCohorts.add(cohortSlug)
       } catch (e) {
         console.warn(
           `[tspComparison] Cohort entity enrichment failed cohort=${cohortSlug}; continuing`,
@@ -224,6 +227,13 @@ export async function buildTspComparisonDashboardMerged(
       }
     }
 
+    const filteredInternalCohortLabelCounts: Record<string, Record<string, number>> = {}
+    for (const [slug, counts] of Object.entries(internalCohortLabelCounts)) {
+      if (materializedEntityCohorts.has(slug)) {
+        filteredInternalCohortLabelCounts[slug] = counts
+      }
+    }
+
     try {
       internalCohortRichnessCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
         await fetchDistinctVehicleCountByRichnessFieldForProvider(
@@ -253,17 +263,37 @@ export async function buildTspComparisonDashboardMerged(
       }
     }
 
+    const filteredInternalCohortRichnessCounts: Record<
+      string,
+      Record<string, number>
+    > = {}
+    for (const [slug, counts] of Object.entries(internalCohortRichnessCounts)) {
+      if (materializedEntityCohorts.has(slug)) {
+        filteredInternalCohortRichnessCounts[slug] = counts
+      }
+    }
+
+    const slugByTspIdForMaterializedCohorts: Record<string, string | null> = {
+      ...slugByTspId,
+    }
+    for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+      if (!materializedEntityCohorts.has(cohort.slug)) {
+        slugByTspIdForMaterializedCohorts[cohort.id] = null
+      }
+    }
+
     mergeInternalHardwareRichnessCoverage(
       payload,
       internalCohortEntityCounts,
-      internalCohortRichnessCounts,
+      filteredInternalCohortRichnessCounts,
+      materializedEntityCohorts,
     )
 
     mergeEventLabelVehicleCoverageIntoPayload(
       payload,
       { ...entityCountByProvider, ...internalCohortEntityCounts },
-      { ...labelVidByProviderBase, ...internalCohortLabelCounts },
-      slugByTspId,
+      { ...labelVidByProviderBase, ...filteredInternalCohortLabelCounts },
+      slugByTspIdForMaterializedCohorts,
       tspNameById,
     )
   } else if (hasCohorts) {

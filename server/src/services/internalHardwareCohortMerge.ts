@@ -71,6 +71,7 @@ export function mergeInternalHardwareRichnessCoverage(
   payload: DashboardPayload,
   entitiesByCohortSlug: Record<string, number>,
   richnessByCohortSlug: Record<string, Record<string, number>>,
+  materializedCohortSlugs?: ReadonlySet<string>,
 ): void {
   const metric = payload.metrics.find((m) => m.id === 'metric-data-richness')
   if (!metric || metric.type !== 'expandable') {
@@ -91,6 +92,9 @@ export function mergeInternalHardwareRichnessCoverage(
   }
 
   for (const c of INTERNAL_HARDWARE_COHORTS) {
+    if (materializedCohortSlugs && !materializedCohortSlugs.has(c.slug)) {
+      continue
+    }
     const entityCount = entitiesByCohortSlug[c.slug] ?? 0
     const byField = richnessByCohortSlug[c.slug] ?? {}
 

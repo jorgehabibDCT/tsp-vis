@@ -15,15 +15,27 @@ export const INTERNAL_HARDWARE_COHORTS = [
     id: 'cohort-internal-antares',
     name: 'Antares',
     slug: '__internal_antares',
-    mongoFilter: { 'deviceVersion.extras': 'EG912U' } as const,
+    mongoFilter: {
+      $and: [
+        { 'deviceVersion.device': 'syrus' },
+        { 'deviceVersion.extras': 'EG912U' },
+      ],
+    } as const,
   },
   {
     id: 'cohort-internal-syrus',
     name: 'Syrus',
     slug: '__internal_syrus',
     mongoFilter: {
-      'deviceVersion.device': 'syrus',
-      'deviceVersion.extras': null,
+      $and: [
+        { 'deviceVersion.device': 'syrus' },
+        {
+          $nor: [
+            { 'deviceVersion.model': 'Syrus Lynx' },
+            { 'deviceVersion.extras': 'EG912U' },
+          ],
+        },
+      ],
     } as const,
   },
 ] as const

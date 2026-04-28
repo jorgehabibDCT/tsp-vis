@@ -40,6 +40,43 @@ function cloneDashboardPayload(): DashboardPayload {
   ) as DashboardPayload
 }
 
+async function shadowFetchExternalCohortSnapshot(): Promise<void> {
+  const baseUrl = process.env.COHORT_SERVICE_BASE_URL?.trim()
+  if (!baseUrl) {
+    return
+  }
+  const timeoutMsRaw = process.env.COHORT_SERVICE_TIMEOUT_MS?.trim()
+  const timeoutMs = Number.parseInt(timeoutMsRaw ?? '900', 10)
+  const ctrl = new AbortController()
+  const timeout = setTimeout(() => ctrl.abort(), Number.isFinite(timeoutMs) ? timeoutMs : 900)
+  const url = `${baseUrl.replace(/\/$/, '')}/internal-hardware-cohorts/snapshot`
+  const t0 = Date.now()
+  try {
+    const res = await fetch(url, { signal: ctrl.signal })
+    const elapsedMs = Date.now() - t0
+    if (!res.ok) {
+      console.warn(
+        `[cohort-service/shadow] non_ok status=${res.status} elapsedMs=${elapsedMs} url=${url}`,
+      )
+      return
+    }
+    const body = (await res.json()) as {
+      generatedAt?: string
+      stale?: boolean
+      cohorts?: Record<string, unknown>
+      errors?: string[]
+    }
+    console.log(
+      `[cohort-service/shadow] ok elapsedMs=${elapsedMs} stale=${Boolean(body.stale)} generatedAt=${body.generatedAt ?? 'n/a'} cohorts=${body.cohorts ? Object.keys(body.cohorts).length : 0} errors=${body.errors?.length ?? 0}`,
+    )
+  } catch (e) {
+    const elapsedMs = Date.now() - t0
+    console.warn(`[cohort-service/shadow] fetch_failed elapsedMs=${elapsedMs} url=${url}`, e)
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 function mergeEntityCountsIntoPayload(
   payload: DashboardPayload,
   byProvider: Record<string, number>,
@@ -76,6 +113,7 @@ function mergeEntityCountsIntoPayload(
 export async function buildTspComparisonDashboardMerged(
   port: InfluxDashboardQueryPort,
 ): Promise<DashboardPayload> {
+  await shadowFetchExternalCohortSnapshot()
   const slugByTspId: Record<string, string | null> = getTspProviderSlugMap()
   const payload = cloneDashboardPayload()
 

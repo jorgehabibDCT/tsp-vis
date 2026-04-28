@@ -8,7 +8,6 @@ import {
 } from '../lib/mongoEnv.js'
 
 export type HardwareCohortVidSets = Record<string, Set<string>>
-const VEHICLE_ID_DISTINCT_FIELDS = ['id_str', 'id', 'vid'] as const
 
 function normalizeVid(value: unknown): string | null {
   if (value === null || value === undefined) {
@@ -16,6 +15,28 @@ function normalizeVid(value: unknown): string | null {
   }
   const s = String(value).trim()
   return s.length > 0 ? s : null
+}
+
+type CohortDocIdentity = {
+  id?: unknown
+  id_str?: unknown
+  deviceVersion?: {
+    device?: unknown
+    model?: unknown
+    extras?: unknown
+  }
+}
+
+function canonicalVidFromDoc(doc: CohortDocIdentity): string | null {
+  const fromId = normalizeVid(doc.id)
+  if (fromId) {
+    return fromId
+  }
+  const fromIdStr = normalizeVid(doc.id_str)
+  if (fromIdStr) {
+    return fromIdStr
+  }
+  return null
 }
 
 /**
@@ -48,24 +69,60 @@ export async function fetchHardwareCohortVidSetsFromMongo(): Promise<HardwareCoh
       `[mongo/cohorts] query cohort=${cohort.name} slug=${cohort.slug} filter=${JSON.stringify(filter)}`,
     )
     const bucket = out[cohort.slug] ?? new Set<string>()
-    for (const field of VEHICLE_ID_DISTINCT_FIELDS) {
-      const values = (await coll.distinct(field, filter)) as unknown[]
-      let addedForField = 0
-      for (const raw of values) {
-        const vid = normalizeVid(raw)
-        if (vid && !bucket.has(vid)) {
-          bucket.add(vid)
-          addedForField += 1
-        }
+
+    const docs = (await coll
+      .find(filter, {
+        projection: {
+          _id: 0,
+          id: 1,
+          id_str: 1,
+          'deviceVersion.device': 1,
+          'deviceVersion.model': 1,
+          'deviceVersion.extras': 1,
+        },
+      })
+      .toArray()) as CohortDocIdentity[]
+
+    let docsWithId = 0
+    let docsWithIdStr = 0
+    let docsDroppedMissingIdentity = 0
+    let docsUsingFallbackIdStr = 0
+
+    for (const doc of docs) {
+      if (normalizeVid(doc.id)) {
+        docsWithId += 1
       }
+      if (normalizeVid(doc.id_str)) {
+        docsWithIdStr += 1
+      }
+
+      const canonical = canonicalVidFromDoc(doc)
+      if (!canonical) {
+        docsDroppedMissingIdentity += 1
+        continue
+      }
+      if (!normalizeVid(doc.id) && normalizeVid(doc.id_str)) {
+        docsUsingFallbackIdStr += 1
+      }
+      bucket.add(canonical)
+    }
+
+    console.log(
+      `[mongo/cohorts] identity cohort=${cohort.name} docs_matched=${docs.length} docs_with_id=${docsWithId} docs_with_id_str=${docsWithIdStr} docs_dropped_missing_identity=${docsDroppedMissingIdentity} docs_using_fallback_id_str=${docsUsingFallbackIdStr}`,
+    )
+    console.log(
+      `[mongo/cohorts] result cohort=${cohort.name} slug=${cohort.slug} canonical_vids=${bucket.size}`,
+    )
+    if (docs.length > 0) {
       console.log(
-        `[mongo/cohorts] distinct field=${field} cohort=${cohort.name} raw_values=${values.length} added_unique=${addedForField}`,
+        `[mongo/cohorts] sample cohort=${cohort.name} first_doc_identity=${JSON.stringify({
+          id: docs[0]?.id ?? null,
+          id_str: docs[0]?.id_str ?? null,
+        })}`,
       )
     }
+
     out[cohort.slug] = bucket
-    console.log(
-      `[mongo/cohorts] result cohort=${cohort.name} slug=${cohort.slug} distinct_vids=${bucket.size}`,
-    )
   }
 
   return out

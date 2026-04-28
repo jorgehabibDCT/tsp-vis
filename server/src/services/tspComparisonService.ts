@@ -82,11 +82,20 @@ export async function buildTspComparisonDashboardMerged(
     const hasCohorts = INTERNAL_HARDWARE_COHORTS.some(
       (c) => (cohortVids[c.slug]?.size ?? 0) > 0,
     )
+    const cohortVidCounts = Object.fromEntries(
+      INTERNAL_HARDWARE_COHORTS.map((c) => [c.slug, cohortVids[c.slug]?.size ?? 0]),
+    )
+    console.log(
+      `[hardware-cohorts] gate hasCohorts=${hasCohorts} counts=${JSON.stringify(cohortVidCounts)}`,
+    )
     if (hasCohorts) {
       ensureInternalHardwareColumns(payload)
       for (const cohort of INTERNAL_HARDWARE_COHORTS) {
         slugByTspId[cohort.id] = cohort.slug
       }
+      console.log(
+        `[hardware-cohorts] injecting columns ids=${INTERNAL_HARDWARE_COHORTS.map((c) => c.id).join(',')}`,
+      )
       internalCohortEntityCounts =
         await fetchDistinctEntityCountsByVidCohort(cohortVids)
       internalCohortLabelCounts =
@@ -100,7 +109,7 @@ export async function buildTspComparisonDashboardMerged(
         internalCohortRichnessCounts,
       )
     } else {
-      console.log('[hardware-cohorts] no cohort vids found in Mongo')
+      console.log('[hardware-cohorts] skip reason=no_nonempty_cohort_vid_sets')
     }
   } catch (e) {
     console.warn(

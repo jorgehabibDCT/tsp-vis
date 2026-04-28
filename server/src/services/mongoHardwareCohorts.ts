@@ -8,6 +8,7 @@ import {
 } from '../lib/mongoEnv.js'
 
 export type HardwareCohortVidSets = Record<string, Set<string>>
+const VEHICLE_ID_DISTINCT_FIELDS = ['id_str', 'id', 'vid'] as const
 
 function normalizeVid(value: unknown): string | null {
   if (value === null || value === undefined) {
@@ -26,8 +27,10 @@ export async function fetchHardwareCohortVidSetsFromMongo(): Promise<HardwareCoh
     out[c.slug] = new Set<string>()
   }
 
-  if (!isMongoConfigured()) {
-    console.log('[mongo/cohorts] skipped (mongo env not configured)')
+  const mongoConfigured = isMongoConfigured()
+  console.log(`[mongo/cohorts] env_configured=${mongoConfigured}`)
+  if (!mongoConfigured) {
+    console.log('[mongo/cohorts] skipped reason=env_not_configured')
     return out
   }
 
@@ -41,17 +44,27 @@ export async function fetchHardwareCohortVidSetsFromMongo(): Promise<HardwareCoh
 
   for (const cohort of INTERNAL_HARDWARE_COHORTS) {
     const filter = cohort.mongoFilter as Filter<Document>
-    const values = (await coll.distinct('vid', filter)) as unknown[]
+    console.log(
+      `[mongo/cohorts] query cohort=${cohort.name} slug=${cohort.slug} filter=${JSON.stringify(filter)}`,
+    )
     const bucket = out[cohort.slug] ?? new Set<string>()
-    for (const raw of values) {
-      const vid = normalizeVid(raw)
-      if (vid) {
-        bucket.add(vid)
+    for (const field of VEHICLE_ID_DISTINCT_FIELDS) {
+      const values = (await coll.distinct(field, filter)) as unknown[]
+      let addedForField = 0
+      for (const raw of values) {
+        const vid = normalizeVid(raw)
+        if (vid && !bucket.has(vid)) {
+          bucket.add(vid)
+          addedForField += 1
+        }
       }
+      console.log(
+        `[mongo/cohorts] distinct field=${field} cohort=${cohort.name} raw_values=${values.length} added_unique=${addedForField}`,
+      )
     }
     out[cohort.slug] = bucket
     console.log(
-      `[mongo/cohorts] cohort=${cohort.slug} distinct_vids=${bucket.size}`,
+      `[mongo/cohorts] result cohort=${cohort.name} slug=${cohort.slug} distinct_vids=${bucket.size}`,
     )
   }
 

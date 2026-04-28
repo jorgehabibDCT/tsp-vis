@@ -1,4 +1,5 @@
 import type { mockTspComparisonResponse } from '../data/mockTspComparison.js'
+import { INTERNAL_HARDWARE_COLUMN_ORDER } from '../config/internalHardwareCohorts.js'
 
 export type DashboardPayload = typeof mockTspComparisonResponse
 
@@ -35,14 +36,31 @@ function isFiniteScore(v: number | null | undefined): v is number {
 }
 
 /**
- * Column order: highest Provider Readiness Score first; equal scores → name A–Z;
- * null/unavailable scores last; among those → name A–Z.
+ * Column order:
+ * 1) Fixed internal hardware cohort columns first (in configured order).
+ * 2) Remaining columns by highest Provider Readiness Score first; equal scores → name A–Z.
+ * 3) null/unavailable scores last; among those → name A–Z.
  */
 export function sortDashboardTsps<T extends TspLike>(
   tsps: T[],
   readinessByTspId: Record<string, number | null>,
 ): T[] {
+  const priorityIndex: Map<string, number> = new Map(
+    INTERNAL_HARDWARE_COLUMN_ORDER.map((id, idx) => [id, idx]),
+  )
+
   return [...tsps].sort((a, b) => {
+    const ai = priorityIndex.get(a.id)
+    const bi = priorityIndex.get(b.id)
+    const aPriority = ai !== undefined
+    const bPriority = bi !== undefined
+    if (aPriority && bPriority) {
+      return (ai ?? 0) - (bi ?? 0)
+    }
+    if (aPriority !== bPriority) {
+      return aPriority ? -1 : 1
+    }
+
     const pa = readinessByTspId[a.id]
     const pb = readinessByTspId[b.id]
     const aHas = isFiniteScore(pa)

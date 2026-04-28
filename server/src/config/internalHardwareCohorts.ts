@@ -1,0 +1,35 @@
+export const INTERNAL_HARDWARE_COHORTS = [
+  {
+    id: 'cohort-internal-teltonika',
+    name: 'Teltonika',
+    slug: '__internal_teltonika',
+    mongoFilter: { 'deviceVersion.device': 'teltonika' } as const,
+  },
+  {
+    id: 'cohort-internal-lynx',
+    name: 'Lynx',
+    slug: '__internal_lynx',
+    mongoFilter: { 'deviceVersion.model': 'Syrus Lynx' } as const,
+  },
+  {
+    id: 'cohort-internal-antares',
+    name: 'Antares',
+    slug: '__internal_antares',
+    mongoFilter: { 'deviceVersion.extras': 'EG912U' } as const,
+  },
+  {
+    id: 'cohort-internal-syrus',
+    name: 'Syrus',
+    slug: '__internal_syrus',
+    mongoFilter: {
+      'deviceVersion.device': 'syrus',
+      'deviceVersion.extras': null,
+    } as const,
+  },
+] as const
+
+export const INTERNAL_HARDWARE_COLUMN_ORDER = INTERNAL_HARDWARE_COHORTS.map(
+  (c) => c.id,
+)
+
+export type InternalHardwareCohort = (typeof INTERNAL_HARDWARE_COHORTS)[number]

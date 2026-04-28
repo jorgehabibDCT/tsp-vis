@@ -4,6 +4,7 @@ import { mockTspComparisonResponse } from '../data/mockTspComparison.js'
 import { withDashboardResponseCache } from './dashboardResponseCache.js'
 import { mergeEventLabelVehicleCoverageIntoPayload } from './mergeEventLabelDashboard.js'
 import { recomputeProviderReadinessScores } from '../utils/providerReadinessScore.js'
+import { INTERNAL_HARDWARE_COHORTS } from '../config/internalHardwareCohorts.js'
 import {
   logTspSlugMapVsInfluxProviders,
   logDashboardBackendLiveVerification,
@@ -16,6 +17,17 @@ import {
   defaultInfluxDashboardQueryPort,
   type InfluxDashboardQueryPort,
 } from './influxDashboardQueryPort.js'
+import { fetchHardwareCohortVidSetsFromMongo } from './mongoHardwareCohorts.js'
+import {
+  fetchDistinctEntityCountsByVidCohort,
+  fetchDistinctVehicleCountByLabelForVidCohort,
+  fetchDistinctVehicleCountByRichnessFieldForVidCohort,
+} from './influxVidCohortMetrics.js'
+import {
+  ensureInternalHardwareColumns,
+  mergeInternalHardwareEntityCounts,
+  mergeInternalHardwareRichnessCoverage,
+} from './internalHardwareCohortMerge.js'
 
 function cloneDashboardPayload(): DashboardPayload {
   return JSON.parse(
@@ -59,8 +71,43 @@ function mergeEntityCountsIntoPayload(
 export async function buildTspComparisonDashboardMerged(
   port: InfluxDashboardQueryPort,
 ): Promise<DashboardPayload> {
-  const slugByTspId = getTspProviderSlugMap()
+  const slugByTspId: Record<string, string | null> = getTspProviderSlugMap()
   const payload = cloneDashboardPayload()
+
+  let internalCohortEntityCounts: Record<string, number> = {}
+  let internalCohortLabelCounts: Record<string, Record<string, number>> = {}
+  let internalCohortRichnessCounts: Record<string, Record<string, number>> = {}
+  try {
+    const cohortVids = await fetchHardwareCohortVidSetsFromMongo()
+    const hasCohorts = INTERNAL_HARDWARE_COHORTS.some(
+      (c) => (cohortVids[c.slug]?.size ?? 0) > 0,
+    )
+    if (hasCohorts) {
+      ensureInternalHardwareColumns(payload)
+      for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+        slugByTspId[cohort.id] = cohort.slug
+      }
+      internalCohortEntityCounts =
+        await fetchDistinctEntityCountsByVidCohort(cohortVids)
+      internalCohortLabelCounts =
+        await fetchDistinctVehicleCountByLabelForVidCohort(cohortVids)
+      internalCohortRichnessCounts =
+        await fetchDistinctVehicleCountByRichnessFieldForVidCohort(cohortVids)
+      mergeInternalHardwareEntityCounts(payload, internalCohortEntityCounts)
+      mergeInternalHardwareRichnessCoverage(
+        payload,
+        internalCohortEntityCounts,
+        internalCohortRichnessCounts,
+      )
+    } else {
+      console.log('[hardware-cohorts] no cohort vids found in Mongo')
+    }
+  } catch (e) {
+    console.warn(
+      '[hardware-cohorts] Mongo/Influx VID cohort merge failed; skipping cohort columns',
+      e,
+    )
+  }
 
   const tspNameById = Object.fromEntries(
     payload.tsps.map((t) => [t.id, t.name]),
@@ -75,7 +122,11 @@ export async function buildTspComparisonDashboardMerged(
       slugByTspId,
       Object.keys(entityCountByProvider),
     )
-    mergeEntityCountsIntoPayload(payload, entityCountByProvider, slugByTspId)
+    mergeEntityCountsIntoPayload(
+      payload,
+      { ...entityCountByProvider, ...internalCohortEntityCounts },
+      slugByTspId,
+    )
     entitiesQuerySucceeded = true
   } catch (e) {
     console.warn(
@@ -86,8 +137,16 @@ export async function buildTspComparisonDashboardMerged(
 
   let eventLabelsQuerySucceeded = false
   try {
-    const labelVidByProvider =
+    const labelVidByProviderBase =
       await port.fetchDistinctVehicleCountByProviderAndLabel()
+    const labelVidByProvider: Record<string, Record<string, number>> = {
+      ...labelVidByProviderBase,
+      ...internalCohortLabelCounts,
+    }
+    const entityCountForEventMerge: Record<string, number> = {
+      ...entityCountByProvider,
+      ...internalCohortEntityCounts,
+    }
     logTspSlugMapVsInfluxProviders(
       'event-labels',
       slugByTspId,
@@ -95,7 +154,7 @@ export async function buildTspComparisonDashboardMerged(
     )
     mergeEventLabelVehicleCoverageIntoPayload(
       payload,
-      entityCountByProvider,
+      entityCountForEventMerge,
       labelVidByProvider,
       slugByTspId,
       tspNameById,
@@ -114,7 +173,7 @@ export async function buildTspComparisonDashboardMerged(
   logDashboardBackendLiveVerification({
     tsps: payload.tsps,
     slugByTspId,
-    entityByProvider: entityCountByProvider,
+    entityByProvider: { ...entityCountByProvider, ...internalCohortEntityCounts },
     metrics: payload.metrics,
     entitiesQuerySucceeded,
     eventLabelsQuerySucceeded,

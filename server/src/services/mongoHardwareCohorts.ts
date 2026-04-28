@@ -9,6 +9,30 @@ import {
 
 export type HardwareCohortVidSets = Record<string, Set<string>>
 
+type CohortVidCacheEntry = {
+  builtAt: number
+  data: HardwareCohortVidSets
+}
+
+let cohortVidCache: CohortVidCacheEntry | null = null
+
+function getHardwareCohortVidCacheTtlMs(): number {
+  const raw = process.env.INTERNAL_HARDWARE_COHORTS_CACHE_TTL_MS?.trim()
+  if (!raw) {
+    return 15 * 60_000
+  }
+  const n = Number.parseInt(raw, 10)
+  return Number.isFinite(n) && n >= 0 ? n : 15 * 60_000
+}
+
+function cloneHardwareCohortVidSets(src: HardwareCohortVidSets): HardwareCohortVidSets {
+  const out: HardwareCohortVidSets = {}
+  for (const [slug, vids] of Object.entries(src)) {
+    out[slug] = new Set<string>(vids)
+  }
+  return out
+}
+
 function normalizeVid(value: unknown): string | null {
   if (value === null || value === undefined) {
     return null
@@ -43,6 +67,19 @@ function canonicalVidFromDoc(doc: CohortDocIdentity): string | null {
  * Reads Mongo-defined internal hardware cohorts and returns distinct VID sets by cohort slug.
  */
 export async function fetchHardwareCohortVidSetsFromMongo(): Promise<HardwareCohortVidSets> {
+  const ttlMs = getHardwareCohortVidCacheTtlMs()
+  const now = Date.now()
+  if (ttlMs > 0 && cohortVidCache && now - cohortVidCache.builtAt < ttlMs) {
+    const ageMs = now - cohortVidCache.builtAt
+    const expiresInMs = ttlMs - ageMs
+    console.log(
+      `[mongo/cohorts/cache] hit ageMs=${ageMs} ttlMs=${ttlMs} expiresInMs=${expiresInMs}`,
+    )
+    return cloneHardwareCohortVidSets(cohortVidCache.data)
+  }
+  const reason = cohortVidCache ? 'expired' : 'empty'
+  console.log(`[mongo/cohorts/cache] miss ttlMs=${ttlMs} reason=${reason}`)
+
   const out: HardwareCohortVidSets = {}
   for (const c of INTERNAL_HARDWARE_COHORTS) {
     out[c.slug] = new Set<string>()
@@ -125,5 +162,12 @@ export async function fetchHardwareCohortVidSetsFromMongo(): Promise<HardwareCoh
     out[cohort.slug] = bucket
   }
 
-  return out
+  if (ttlMs > 0) {
+    cohortVidCache = { builtAt: Date.now(), data: cloneHardwareCohortVidSets(out) }
+    console.log(`[mongo/cohorts/cache] store ttlMs=${ttlMs}`)
+  } else {
+    console.log('[mongo/cohorts/cache] disabled (INTERNAL_HARDWARE_COHORTS_CACHE_TTL_MS=0)')
+  }
+
+  return cloneHardwareCohortVidSets(out)
 }

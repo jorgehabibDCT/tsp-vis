@@ -184,6 +184,14 @@ export async function buildTspComparisonDashboardMerged(
     const entityCountForEventMerge: Record<string, number> = {
       ...entityCountByProvider,
     }
+    const slugByTspIdForBaselineEventMerge: Record<string, string | null> = {
+      ...slugByTspId,
+    }
+    // Baseline event-label merge should not touch internal cohort columns.
+    // They are materialized separately in the cohort pass.
+    for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+      slugByTspIdForBaselineEventMerge[cohort.id] = null
+    }
     logTspSlugMapVsInfluxProviders(
       'event-labels',
       slugByTspId,
@@ -193,7 +201,7 @@ export async function buildTspComparisonDashboardMerged(
       payload,
       entityCountForEventMerge,
       labelVidByProvider,
-      slugByTspId,
+      slugByTspIdForBaselineEventMerge,
       tspNameById,
     )
     eventLabelsQuerySucceeded = true

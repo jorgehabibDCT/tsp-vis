@@ -13,6 +13,10 @@ import {
 } from './dashboardInfluxDiagnostics.js'
 
 type VidSetByCohort = Record<string, Set<string>>
+const COHORT_DEBUG_SLUGS = new Set([
+  '__internal_teltonika',
+  '__internal_lynx',
+])
 
 function escapeFluxString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
@@ -22,8 +26,96 @@ function fluxVidArray(vids: string[]): string {
   return `[${vids.map((v) => `"${escapeFluxString(v)}"`).join(', ')}]`
 }
 
+function normalizedNumericStringVariant(vid: string): string {
+  if (!/^\d+$/.test(vid)) {
+    return vid
+  }
+  try {
+    return String(BigInt(vid))
+  } catch {
+    return vid
+  }
+}
+
 function cohortEntries(vidsByCohort: VidSetByCohort): Array<[string, string[]]> {
   return Object.entries(vidsByCohort).map(([slug, set]) => [slug, [...set]])
+}
+
+async function probeSampleVidPresence(params: {
+  slug: string
+  vids: string[]
+  bucket: string
+  measurement: string
+  range: string
+}): Promise<void> {
+  const { slug, vids, bucket, measurement, range } = params
+  if (!COHORT_DEBUG_SLUGS.has(slug) || vids.length === 0) {
+    return
+  }
+  const queryApi = getQueryApi()
+  const sample = vids.slice(0, 10)
+  const normalizedVariant = [...new Set(sample.map(normalizedNumericStringVariant))]
+  const hasVariantDiff =
+    sample.length === normalizedVariant.length &&
+    sample.some((v, i) => v !== normalizedVariant[i])
+
+  console.log(
+    `[influx/cohort/probe] cohort=${slug} range=${range} measurement=${measurement} sample_vids=${JSON.stringify(sample)}`,
+  )
+
+  const exactFlux = `
+from(bucket: "${bucket}")
+  |> range(start: ${range})
+  |> filter(fn: (r) => r["_measurement"] == "${measurement}")
+  |> filter(fn: (r) => exists r.vid)
+  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(sample)}))
+  |> keep(columns: ["_time", "vid"])
+  |> group(columns: ["vid"])
+  |> first(column: "_time")
+  |> group()
+`.trim()
+
+  const exactRows = await queryApi.collectRows(exactFlux)
+  const exactMatched = new Set<string>()
+  for (const row of exactRows) {
+    const v = readFluxRowField(row as Record<string, unknown>, 'vid')
+    if (v != null) {
+      exactMatched.add(String(v))
+    }
+  }
+  console.log(
+    `[influx/cohort/probe] cohort=${slug} exact_match matched_vids=${exactMatched.size} row_count=${exactRows.length} matched_sample=${JSON.stringify([...exactMatched].slice(0, 10))}`,
+  )
+
+  if (!hasVariantDiff) {
+    console.log(
+      `[influx/cohort/probe] cohort=${slug} numeric_variant skipped reason=no_representation_change`,
+    )
+    return
+  }
+
+  const variantFlux = `
+from(bucket: "${bucket}")
+  |> range(start: ${range})
+  |> filter(fn: (r) => r["_measurement"] == "${measurement}")
+  |> filter(fn: (r) => exists r.vid)
+  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(normalizedVariant)}))
+  |> keep(columns: ["_time", "vid"])
+  |> group(columns: ["vid"])
+  |> first(column: "_time")
+  |> group()
+`.trim()
+  const variantRows = await queryApi.collectRows(variantFlux)
+  const variantMatched = new Set<string>()
+  for (const row of variantRows) {
+    const v = readFluxRowField(row as Record<string, unknown>, 'vid')
+    if (v != null) {
+      variantMatched.add(String(v))
+    }
+  }
+  console.log(
+    `[influx/cohort/probe] cohort=${slug} numeric_variant matched_vids=${variantMatched.size} row_count=${variantRows.length} variant_sample=${JSON.stringify(normalizedVariant)}`,
+  )
 }
 
 function proxyRichnessFields(): Record<string, string> {
@@ -46,6 +138,14 @@ export async function fetchDistinctEntityCountsByVidCohort(
   const out: Record<string, number> = {}
 
   for (const [slug, vids] of cohortEntries(vidsByCohort)) {
+    await probeSampleVidPresence({
+      slug,
+      vids,
+      bucket,
+      measurement,
+      range,
+    })
+
     if (vids.length === 0) {
       out[slug] = 0
       continue

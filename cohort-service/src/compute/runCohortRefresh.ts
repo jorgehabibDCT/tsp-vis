@@ -1,6 +1,6 @@
 import type { Filter, Document } from 'mongodb'
 import { COHORT_DEFINITIONS, TELTONIKA_PROVIDER_SLUG, TELTONIKA_SLUG } from '../config/cohorts.js'
-import type { CohortSlug, CohortSnapshot } from '../types.js'
+import type { CohortSlug, CohortSnapshot, CohortSnapshotItem } from '../types.js'
 import { getMongoClient } from '../lib/mongo.js'
 import { escapeFluxString, fluxVidArray, getQueryApi } from '../lib/influx.js'
 
@@ -269,7 +269,7 @@ export async function runCohortRefresh(config: RefreshConfig): Promise<CohortSna
   const errors: string[] = []
   const mongo = await fetchCohortMongoInfo(config)
 
-  const cohorts = {
+  const cohorts: Record<CohortSlug, CohortSnapshotItem> = {
     __internal_teltonika: {
       entities: null,
       eventLabels: {},
@@ -294,7 +294,7 @@ export async function runCohortRefresh(config: RefreshConfig): Promise<CohortSna
       richness: {},
       status: 'empty',
     },
-  } satisfies CohortSnapshot['cohorts']
+  }
 
   for (const c of COHORT_DEFINITIONS) {
     try {

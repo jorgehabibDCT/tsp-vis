@@ -144,14 +144,13 @@ function applyExternalCohortSnapshot(
     string,
     { kind: 'scalar'; value: number | null }
   >
-  const eventCells = eventMetric.values as Record<
-    string,
-    { kind: 'expandable'; summary: number | null; groups: { groupId: string; values: Array<number | null> }[] }
-  >
-  const richnessCells = richnessMetric.values as Record<
-    string,
-    { kind: 'expandable'; summary: number | null; groups: { groupId: string; values: Array<boolean | null> }[] }
-  >
+  type MutableExpandableCell = {
+    kind: 'expandable'
+    summary: number | null
+    groups: { groupId: string; values: Array<number | boolean | null> }[]
+  }
+  const eventCells = eventMetric.values as Record<string, MutableExpandableCell>
+  const richnessCells = richnessMetric.values as Record<string, MutableExpandableCell>
 
   const materialized = new Set<string>()
   const eventLabelByCohortSlug: Record<string, Record<string, number>> = {}

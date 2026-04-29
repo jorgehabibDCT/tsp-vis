@@ -35,6 +35,7 @@ export async function withDashboardResponseCache(
 ): Promise<DashboardPayload> {
   const ttlMs = getDashboardCacheTtlMs()
   const now = Date.now()
+  const cachedEntry = cache
 
   const startRefresh = (): void => {
     if (refreshPromise) {
@@ -68,33 +69,34 @@ export async function withDashboardResponseCache(
     return fresh
   }
 
-  if (cache && now - cache.builtAt < ttlMs) {
-    const ageMs = now - cache.builtAt
+  if (cachedEntry && now - cachedEntry.builtAt < ttlMs) {
+    const ageMs = now - cachedEntry.builtAt
     const expiresInMs = ttlMs - ageMs
     console.log(
       `[dashboard/cache] hit ageMs=${ageMs} ttlMs=${ttlMs} expiresInMs=${expiresInMs}`,
     )
-    return clonePayload(cache.payload)
+    return clonePayload(cachedEntry.payload)
   }
 
-  if (cache) {
-    const ageMs = now - cache.builtAt
+  if (cachedEntry) {
+    const ageMs = now - cachedEntry.builtAt
     console.log(
       `[dashboard/cache] stale_serve ageMs=${ageMs} ttlMs=${ttlMs} refresh_in_flight=${Boolean(refreshPromise)}`,
     )
     startRefresh()
-    return clonePayload(cache.payload)
+    return clonePayload(cachedEntry.payload)
   }
 
   if (refreshPromise) {
     console.log('[dashboard/cache] cold_wait reason=refresh_in_flight')
     await refreshPromise
-    if (cache) {
-      return clonePayload(cache.payload)
+    const refreshedEntry = cache
+    if (refreshedEntry) {
+      return clonePayload(refreshedEntry.payload)
     }
   }
 
-  const reason = cache ? 'expired' : 'empty'
+  const reason = cachedEntry ? 'expired' : 'empty'
   console.log(
     `[dashboard/cache] cold_miss ttlMs=${ttlMs} reason=${reason} refresh_in_flight=${Boolean(refreshPromise)}`,
   )

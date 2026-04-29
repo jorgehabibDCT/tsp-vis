@@ -239,10 +239,17 @@ function mergeEntityCountsIntoPayload(
 export async function buildTspComparisonDashboardMerged(
   port: InfluxDashboardQueryPort,
 ): Promise<DashboardPayload> {
+  const buildStartedAt = Date.now()
+  const stage = (name: string, t0: number): void => {
+    console.log(`[tspComparison/timing] stage=${name} elapsedMs=${Date.now() - t0}`)
+  }
+
   const slugByTspId: Record<string, string | null> = getTspProviderSlugMap()
   const payload = cloneDashboardPayload()
   const externalCohortServiceEnabled = isExternalCohortServiceEnabled()
+  const externalSnapshotStartedAt = Date.now()
   const externalSnapshot = await fetchExternalCohortSnapshot()
+  stage('external_snapshot_fetch', externalSnapshotStartedAt)
 
   let internalCohortEntityCounts: Record<string, number> = {}
   let internalCohortLabelCounts: Record<string, Record<string, number>> = {}
@@ -251,6 +258,7 @@ export async function buildTspComparisonDashboardMerged(
   let hasCohorts = false
   let cohortVidsForInflux: Record<string, Set<string>> = {}
   if (!externalCohortServiceEnabled) {
+    const inProcessCohortsStartedAt = Date.now()
     try {
       const cohortVids = await fetchHardwareCohortVidSetsFromMongo()
       hasCohorts = INTERNAL_HARDWARE_COHORTS.some(
@@ -287,6 +295,7 @@ export async function buildTspComparisonDashboardMerged(
         e,
       )
     }
+    stage('in_process_cohort_gate', inProcessCohortsStartedAt)
   } else {
     console.log(
       `[cohort-service] external mode enabled snapshot_present=${Boolean(externalSnapshot)}; bypassing in-process cohort path`,
@@ -299,6 +308,7 @@ export async function buildTspComparisonDashboardMerged(
 
   let entityCountByProvider: Record<string, number> = {}
   let entitiesQuerySucceeded = false
+  const entitiesQueryStartedAt = Date.now()
   try {
     entityCountByProvider = await port.fetchDistinctEntityCountsByProvider()
     logTspSlugMapVsInfluxProviders(
@@ -318,8 +328,10 @@ export async function buildTspComparisonDashboardMerged(
       e,
     )
   }
+  stage('baseline_entities_query_merge', entitiesQueryStartedAt)
 
   if (!externalCohortServiceEnabled && hasCohorts && entitiesQuerySucceeded) {
+    const cohortEntitiesStartedAt = Date.now()
     // Explicitly alias provider-native teltonika -> internal cohort column.
     internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
       entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0
@@ -343,10 +355,12 @@ export async function buildTspComparisonDashboardMerged(
       }
     }
     mergeInternalHardwareEntityCounts(payload, internalCohortEntityCounts)
+    stage('cohort_entities_enrichment', cohortEntitiesStartedAt)
   }
 
   let eventLabelsQuerySucceeded = false
   let labelVidByProviderBase: Record<string, Record<string, number>> = {}
+  const baselineEventLabelsStartedAt = Date.now()
   try {
     labelVidByProviderBase = await port.fetchDistinctVehicleCountByProviderAndLabel()
     const labelVidByProvider: Record<string, Record<string, number>> = {
@@ -382,6 +396,7 @@ export async function buildTspComparisonDashboardMerged(
       e,
     )
   }
+  stage('baseline_event_labels_query_merge', baselineEventLabelsStartedAt)
 
   // Keep cohort enrichment best-effort so cohort timeouts do not regress
   // baseline provider entities/event-labels for the whole dashboard response.
@@ -391,6 +406,7 @@ export async function buildTspComparisonDashboardMerged(
     entitiesQuerySucceeded &&
     eventLabelsQuerySucceeded
   ) {
+    const cohortLabelsRichnessStartedAt = Date.now()
     internalCohortLabelCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
       labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {}
 
@@ -480,6 +496,7 @@ export async function buildTspComparisonDashboardMerged(
       slugByTspIdForMaterializedCohorts,
       tspNameById,
     )
+    stage('cohort_labels_richness_enrichment', cohortLabelsRichnessStartedAt)
   } else if (!externalCohortServiceEnabled && hasCohorts) {
     console.warn(
       `[tspComparison] Cohort enrichment skipped entitiesOk=${entitiesQuerySucceeded} eventLabelsOk=${eventLabelsQuerySucceeded}`,
@@ -487,11 +504,15 @@ export async function buildTspComparisonDashboardMerged(
   }
 
   if (externalCohortServiceEnabled && externalSnapshot) {
+    const externalMergeStartedAt = Date.now()
     applyExternalCohortSnapshot(payload, externalSnapshot, slugByTspId)
+    stage('external_snapshot_merge', externalMergeStartedAt)
   }
 
+  const finalizeStartedAt = Date.now()
   recomputeProviderReadinessScores(payload)
   finalizeDashboardPayload(payload)
+  stage('score_finalize', finalizeStartedAt)
 
   logDashboardBackendLiveVerification({
     tsps: payload.tsps,
@@ -501,6 +522,7 @@ export async function buildTspComparisonDashboardMerged(
     entitiesQuerySucceeded,
     eventLabelsQuerySucceeded,
   })
+  console.log(`[tspComparison/timing] total_elapsedMs=${Date.now() - buildStartedAt}`)
 
   return payload
 }

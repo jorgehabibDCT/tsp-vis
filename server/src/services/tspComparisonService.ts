@@ -40,13 +40,33 @@ function cloneDashboardPayload(): DashboardPayload {
   ) as DashboardPayload
 }
 
-async function shadowFetchExternalCohortSnapshot(): Promise<void> {
+type ExternalCohortStatus = 'ok' | 'partial' | 'empty' | 'error'
+type ExternalCohortItem = {
+  entities: number | null
+  eventLabels: Record<string, number>
+  richness: Record<string, number>
+  status: ExternalCohortStatus
+}
+type ExternalCohortSnapshot = {
+  generatedAt?: string
+  stale?: boolean
+  cohorts?: Record<string, ExternalCohortItem>
+  errors?: string[]
+}
+
+function isExternalCohortServiceEnabled(): boolean {
+  return process.env.USE_EXTERNAL_COHORT_SERVICE?.trim() === '1'
+}
+
+async function fetchExternalCohortSnapshot(): Promise<ExternalCohortSnapshot | null> {
   const baseUrl = process.env.COHORT_SERVICE_BASE_URL?.trim()
   if (!baseUrl) {
-    return
+    return null
   }
   const timeoutMsRaw = process.env.COHORT_SERVICE_TIMEOUT_MS?.trim()
   const timeoutMs = Number.parseInt(timeoutMsRaw ?? '900', 10)
+  const maxStaleMsRaw = process.env.COHORT_SERVICE_MAX_STALE_MS?.trim()
+  const maxStaleMs = Number.parseInt(maxStaleMsRaw ?? '600000', 10)
   const ctrl = new AbortController()
   const timeout = setTimeout(() => ctrl.abort(), Number.isFinite(timeoutMs) ? timeoutMs : 900)
   const url = `${baseUrl.replace(/\/$/, '')}/internal-hardware-cohorts/snapshot`
@@ -58,23 +78,130 @@ async function shadowFetchExternalCohortSnapshot(): Promise<void> {
       console.warn(
         `[cohort-service/shadow] non_ok status=${res.status} elapsedMs=${elapsedMs} url=${url}`,
       )
-      return
+      return null
     }
-    const body = (await res.json()) as {
-      generatedAt?: string
-      stale?: boolean
-      cohorts?: Record<string, unknown>
-      errors?: string[]
-    }
+    const body = (await res.json()) as ExternalCohortSnapshot
+    const generatedAtMs = body.generatedAt ? new Date(body.generatedAt).getTime() : NaN
+    const ageMs = Number.isFinite(generatedAtMs) ? Date.now() - generatedAtMs : NaN
+    const staleByAge = Number.isFinite(ageMs) && ageMs > maxStaleMs
     console.log(
-      `[cohort-service/shadow] ok elapsedMs=${elapsedMs} stale=${Boolean(body.stale)} generatedAt=${body.generatedAt ?? 'n/a'} cohorts=${body.cohorts ? Object.keys(body.cohorts).length : 0} errors=${body.errors?.length ?? 0}`,
+      `[cohort-service/shadow] ok elapsedMs=${elapsedMs} stale=${Boolean(body.stale)} staleByAge=${Boolean(staleByAge)} ageMs=${Number.isFinite(ageMs) ? ageMs : 'n/a'} generatedAt=${body.generatedAt ?? 'n/a'} cohorts=${body.cohorts ? Object.keys(body.cohorts).length : 0} errors=${body.errors?.length ?? 0}`,
     )
+    if (body.stale || staleByAge) {
+      return null
+    }
+    return body
   } catch (e) {
     const elapsedMs = Date.now() - t0
     console.warn(`[cohort-service/shadow] fetch_failed elapsedMs=${elapsedMs} url=${url}`, e)
+    return null
   } finally {
     clearTimeout(timeout)
   }
+}
+
+function buildUnavailableExpandableCell(structure: {
+  groups: { id: string; labels: { id: string }[] }[]
+}): { kind: 'expandable'; summary: null; groups: { groupId: string; values: null[] }[] } {
+  return {
+    kind: 'expandable',
+    summary: null,
+    groups: structure.groups.map((g) => ({
+      groupId: g.id,
+      values: g.labels.map(() => null),
+    })),
+  }
+}
+
+function applyExternalCohortSnapshot(
+  payload: DashboardPayload,
+  snapshot: ExternalCohortSnapshot,
+  slugByTspId: Record<string, string | null>,
+): void {
+  if (!snapshot.cohorts) {
+    return
+  }
+
+  ensureInternalHardwareColumns(payload)
+  for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+    slugByTspId[cohort.id] = cohort.slug
+  }
+
+  const entityMetric = payload.metrics.find(
+    (m) => m.id === 'metric-entities' && m.type === 'scalar',
+  )
+  const eventMetric = payload.metrics.find(
+    (m) => m.id === 'metric-events-alarms' && m.type === 'expandable',
+  )
+  const richnessMetric = payload.metrics.find(
+    (m) => m.id === 'metric-data-richness' && m.type === 'expandable',
+  )
+  if (!entityMetric || !eventMetric || !richnessMetric) {
+    return
+  }
+
+  const entityCells = entityMetric.values as Record<
+    string,
+    { kind: 'scalar'; value: number | null }
+  >
+  const eventCells = eventMetric.values as Record<
+    string,
+    { kind: 'expandable'; summary: number | null; groups: { groupId: string; values: Array<number | null> }[] }
+  >
+  const richnessCells = richnessMetric.values as Record<
+    string,
+    { kind: 'expandable'; summary: number | null; groups: { groupId: string; values: Array<boolean | null> }[] }
+  >
+
+  const materialized = new Set<string>()
+  const eventLabelByCohortSlug: Record<string, Record<string, number>> = {}
+  const entitiesByCohortSlug: Record<string, number> = {}
+  const richnessByCohortSlug: Record<string, Record<string, number>> = {}
+  const slugByTspIdForEventMerge = { ...slugByTspId }
+  const tspNameById = Object.fromEntries(payload.tsps.map((t) => [t.id, t.name]))
+
+  for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+    const item = snapshot.cohorts[cohort.slug]
+    if (!item) {
+      entityCells[cohort.id] = { kind: 'scalar', value: null }
+      eventCells[cohort.id] = buildUnavailableExpandableCell(eventMetric.structure)
+      richnessCells[cohort.id] = buildUnavailableExpandableCell(richnessMetric.structure)
+      slugByTspIdForEventMerge[cohort.id] = null
+      continue
+    }
+
+    if ((item.status === 'ok' || item.status === 'partial') && Number.isFinite(item.entities)) {
+      materialized.add(cohort.slug)
+      entitiesByCohortSlug[cohort.slug] = Math.max(0, Number(item.entities ?? 0))
+      eventLabelByCohortSlug[cohort.slug] = item.eventLabels ?? {}
+      richnessByCohortSlug[cohort.slug] = item.richness ?? {}
+      entityCells[cohort.id] = { kind: 'scalar', value: Math.max(0, Number(item.entities ?? 0)) }
+      continue
+    }
+
+    if (item.status === 'empty') {
+      entityCells[cohort.id] = { kind: 'scalar', value: 0 }
+    } else {
+      entityCells[cohort.id] = { kind: 'scalar', value: null }
+    }
+    eventCells[cohort.id] = buildUnavailableExpandableCell(eventMetric.structure)
+    richnessCells[cohort.id] = buildUnavailableExpandableCell(richnessMetric.structure)
+    slugByTspIdForEventMerge[cohort.id] = null
+  }
+
+  mergeInternalHardwareRichnessCoverage(
+    payload,
+    entitiesByCohortSlug,
+    richnessByCohortSlug,
+    materialized,
+  )
+  mergeEventLabelVehicleCoverageIntoPayload(
+    payload,
+    entitiesByCohortSlug,
+    eventLabelByCohortSlug,
+    slugByTspIdForEventMerge,
+    tspNameById,
+  )
 }
 
 function mergeEntityCountsIntoPayload(
@@ -113,9 +240,10 @@ function mergeEntityCountsIntoPayload(
 export async function buildTspComparisonDashboardMerged(
   port: InfluxDashboardQueryPort,
 ): Promise<DashboardPayload> {
-  await shadowFetchExternalCohortSnapshot()
   const slugByTspId: Record<string, string | null> = getTspProviderSlugMap()
   const payload = cloneDashboardPayload()
+  const externalCohortServiceEnabled = isExternalCohortServiceEnabled()
+  const externalSnapshot = await fetchExternalCohortSnapshot()
 
   let internalCohortEntityCounts: Record<string, number> = {}
   let internalCohortLabelCounts: Record<string, Record<string, number>> = {}
@@ -123,40 +251,46 @@ export async function buildTspComparisonDashboardMerged(
   const materializedEntityCohorts = new Set<string>()
   let hasCohorts = false
   let cohortVidsForInflux: Record<string, Set<string>> = {}
-  try {
-    const cohortVids = await fetchHardwareCohortVidSetsFromMongo()
-    hasCohorts = INTERNAL_HARDWARE_COHORTS.some(
-      (c) => (cohortVids[c.slug]?.size ?? 0) > 0,
-    )
-    const cohortVidCounts = Object.fromEntries(
-      INTERNAL_HARDWARE_COHORTS.map((c) => [c.slug, cohortVids[c.slug]?.size ?? 0]),
-    )
-    console.log(
-      `[hardware-cohorts] gate hasCohorts=${hasCohorts} counts=${JSON.stringify(cohortVidCounts)}`,
-    )
-    if (hasCohorts) {
-      ensureInternalHardwareColumns(payload)
-      for (const cohort of INTERNAL_HARDWARE_COHORTS) {
-        slugByTspId[cohort.id] = cohort.slug
+  if (!externalCohortServiceEnabled) {
+    try {
+      const cohortVids = await fetchHardwareCohortVidSetsFromMongo()
+      hasCohorts = INTERNAL_HARDWARE_COHORTS.some(
+        (c) => (cohortVids[c.slug]?.size ?? 0) > 0,
+      )
+      const cohortVidCounts = Object.fromEntries(
+        INTERNAL_HARDWARE_COHORTS.map((c) => [c.slug, cohortVids[c.slug]?.size ?? 0]),
+      )
+      console.log(
+        `[hardware-cohorts] gate hasCohorts=${hasCohorts} counts=${JSON.stringify(cohortVidCounts)}`,
+      )
+      if (hasCohorts) {
+        ensureInternalHardwareColumns(payload)
+        for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+          slugByTspId[cohort.id] = cohort.slug
+        }
+        cohortVidsForInflux = Object.fromEntries(
+          Object.entries(cohortVids).filter(
+            ([slug]) => slug !== TELTONIKA_INTERNAL_COHORT_SLUG,
+          ),
+        )
+        console.log(
+          `[hardware-cohorts] injecting columns ids=${INTERNAL_HARDWARE_COHORTS.map((c) => c.id).join(',')}`,
+        )
+        console.log(
+          `[hardware-cohorts] strategy teltonika=provider_native others=vid_join non_teltonika_slugs=${Object.keys(cohortVidsForInflux).join(',')}`,
+        )
+      } else {
+        console.log('[hardware-cohorts] skip reason=no_nonempty_cohort_vid_sets')
       }
-      cohortVidsForInflux = Object.fromEntries(
-        Object.entries(cohortVids).filter(
-          ([slug]) => slug !== TELTONIKA_INTERNAL_COHORT_SLUG,
-        ),
+    } catch (e) {
+      console.warn(
+        '[hardware-cohorts] Mongo/Influx VID cohort merge failed; skipping cohort columns',
+        e,
       )
-      console.log(
-        `[hardware-cohorts] injecting columns ids=${INTERNAL_HARDWARE_COHORTS.map((c) => c.id).join(',')}`,
-      )
-      console.log(
-        `[hardware-cohorts] strategy teltonika=provider_native others=vid_join non_teltonika_slugs=${Object.keys(cohortVidsForInflux).join(',')}`,
-      )
-    } else {
-      console.log('[hardware-cohorts] skip reason=no_nonempty_cohort_vid_sets')
     }
-  } catch (e) {
-    console.warn(
-      '[hardware-cohorts] Mongo/Influx VID cohort merge failed; skipping cohort columns',
-      e,
+  } else {
+    console.log(
+      `[cohort-service] external mode enabled snapshot_present=${Boolean(externalSnapshot)}; bypassing in-process cohort path`,
     )
   }
 
@@ -186,7 +320,7 @@ export async function buildTspComparisonDashboardMerged(
     )
   }
 
-  if (hasCohorts && entitiesQuerySucceeded) {
+  if (!externalCohortServiceEnabled && hasCohorts && entitiesQuerySucceeded) {
     // Explicitly alias provider-native teltonika -> internal cohort column.
     internalCohortEntityCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
       entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0
@@ -252,7 +386,12 @@ export async function buildTspComparisonDashboardMerged(
 
   // Keep cohort enrichment best-effort so cohort timeouts do not regress
   // baseline provider entities/event-labels for the whole dashboard response.
-  if (hasCohorts && entitiesQuerySucceeded && eventLabelsQuerySucceeded) {
+  if (
+    !externalCohortServiceEnabled &&
+    hasCohorts &&
+    entitiesQuerySucceeded &&
+    eventLabelsQuerySucceeded
+  ) {
     internalCohortLabelCounts[TELTONIKA_INTERNAL_COHORT_SLUG] =
       labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {}
 
@@ -342,10 +481,14 @@ export async function buildTspComparisonDashboardMerged(
       slugByTspIdForMaterializedCohorts,
       tspNameById,
     )
-  } else if (hasCohorts) {
+  } else if (!externalCohortServiceEnabled && hasCohorts) {
     console.warn(
       `[tspComparison] Cohort enrichment skipped entitiesOk=${entitiesQuerySucceeded} eventLabelsOk=${eventLabelsQuerySucceeded}`,
     )
+  }
+
+  if (externalCohortServiceEnabled && externalSnapshot) {
+    applyExternalCohortSnapshot(payload, externalSnapshot, slugByTspId)
   }
 
   recomputeProviderReadinessScores(payload)

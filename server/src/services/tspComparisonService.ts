@@ -51,7 +51,34 @@ type ExternalCohortSnapshot = {
   generatedAt?: string
   stale?: boolean
   cohorts?: Record<string, ExternalCohortItem>
+  mongo?: Record<string, { docsMatched: number; canonicalVids: number }>
   errors?: string[]
+}
+
+function isStartupPlaceholderSnapshot(body: ExternalCohortSnapshot): boolean {
+  const hasStartupInProgressError = (body.errors ?? []).includes('startup_refresh_in_progress')
+  if (hasStartupInProgressError) {
+    return true
+  }
+
+  const mongoEntries = Object.values(body.mongo ?? {})
+  const allMongoCountsZero =
+    mongoEntries.length > 0 &&
+    mongoEntries.every((m) => (m?.docsMatched ?? 0) <= 0 && (m?.canonicalVids ?? 0) <= 0)
+  if (!allMongoCountsZero) {
+    return false
+  }
+
+  const cohortEntries = Object.values(body.cohorts ?? {})
+  const hasSuccessfulRefreshEvidence = cohortEntries.some((item) => {
+    if (!item) return false
+    if (item.status !== 'empty') return true
+    if (Number(item.entities ?? 0) > 0) return true
+    if (Object.keys(item.eventLabels ?? {}).length > 0) return true
+    if (Object.keys(item.richness ?? {}).length > 0) return true
+    return false
+  })
+  return !hasSuccessfulRefreshEvidence
 }
 
 function isExternalCohortServiceEnabled(): boolean {
@@ -88,6 +115,12 @@ async function fetchExternalCohortSnapshot(): Promise<ExternalCohortSnapshot | n
       `[cohort-service/shadow] ok elapsedMs=${elapsedMs} stale=${Boolean(body.stale)} staleByAge=${Boolean(staleByAge)} ageMs=${Number.isFinite(ageMs) ? ageMs : 'n/a'} generatedAt=${body.generatedAt ?? 'n/a'} cohorts=${body.cohorts ? Object.keys(body.cohorts).length : 0} errors=${body.errors?.length ?? 0}`,
     )
     if (body.stale || staleByAge) {
+      return null
+    }
+    if (isStartupPlaceholderSnapshot(body)) {
+      console.warn(
+        `[cohort-service/shadow] snapshot_rejected reason=startup_placeholder generatedAt=${body.generatedAt ?? 'n/a'}`,
+      )
       return null
     }
     return body

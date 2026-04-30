@@ -91,6 +91,13 @@ app.get('/internal-hardware-cohorts/snapshot', (_req, res) => {
     })
     return
   }
+  if (!hasSuccessfulRefresh) {
+    res.status(200).json({
+      ...snapshot,
+      stale: true,
+    })
+    return
+  }
   res.status(200).json(snapshot)
 })
 

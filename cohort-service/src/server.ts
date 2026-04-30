@@ -2,6 +2,7 @@ import express from 'express'
 import { getEnv, validateEnv } from './config/env.js'
 import { getSnapshot, setSnapshot } from './cache/snapshotStore.js'
 import { runCohortRefresh } from './compute/runCohortRefresh.js'
+import type { CohortSnapshot } from './types.js'
 
 const env = getEnv()
 validateEnv(env)
@@ -9,6 +10,31 @@ validateEnv(env)
 const app = express()
 
 let refreshInFlight = false
+let hasSuccessfulRefresh = false
+
+function seedStartupSnapshot(): void {
+  const now = new Date().toISOString()
+  const placeholder: CohortSnapshot = {
+    version: now,
+    generatedAt: now,
+    stale: true,
+    ttlMs: env.refreshIntervalMs,
+    cohorts: {
+      __internal_teltonika: { entities: 0, eventLabels: {}, richness: {}, status: 'empty' },
+      __internal_lynx: { entities: 0, eventLabels: {}, richness: {}, status: 'empty' },
+      __internal_antares: { entities: 0, eventLabels: {}, richness: {}, status: 'empty' },
+      __internal_syrus: { entities: 0, eventLabels: {}, richness: {}, status: 'empty' },
+    },
+    mongo: {
+      __internal_teltonika: { docsMatched: 0, canonicalVids: 0 },
+      __internal_lynx: { docsMatched: 0, canonicalVids: 0 },
+      __internal_antares: { docsMatched: 0, canonicalVids: 0 },
+      __internal_syrus: { docsMatched: 0, canonicalVids: 0 },
+    },
+    errors: ['startup_refresh_in_progress'],
+  }
+  setSnapshot(placeholder)
+}
 
 async function refreshSnapshot(reason: 'startup' | 'interval'): Promise<void> {
   if (refreshInFlight) {
@@ -21,6 +47,7 @@ async function refreshSnapshot(reason: 'startup' | 'interval'): Promise<void> {
     console.log(`[cohort-service] refresh start trigger=${reason}`)
     const snapshot = await runCohortRefresh(env)
     setSnapshot(snapshot)
+    hasSuccessfulRefresh = true
     console.log(
       `[cohort-service] refresh ok trigger=${reason} elapsedMs=${Date.now() - t0}`,
     )
@@ -39,6 +66,10 @@ app.get('/healthz', (_req, res) => {
 })
 
 app.get('/readyz', (_req, res) => {
+  if (!hasSuccessfulRefresh) {
+    res.status(503).json({ ok: false, reason: 'startup_refresh_in_progress' })
+    return
+  }
   const snapshot = getSnapshot(env.snapshotMaxStaleMs)
   if (!snapshot) {
     res.status(503).json({ ok: false, reason: 'snapshot_unavailable' })
@@ -65,7 +96,8 @@ app.get('/internal-hardware-cohorts/snapshot', (_req, res) => {
 
 app.listen(env.port, async () => {
   console.log(`[cohort-service] listening on :${env.port}`)
-  await refreshSnapshot('startup')
+  seedStartupSnapshot()
+  void refreshSnapshot('startup')
   setInterval(() => {
     void refreshSnapshot('interval')
   }, env.refreshIntervalMs)

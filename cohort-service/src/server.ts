@@ -73,12 +73,13 @@ async function refreshSnapshot(reason: 'startup' | 'interval'): Promise<void> {
   try {
     console.log(`[cohort-service] refresh start trigger=${reason}`)
     const catalog = getLatestCatalog()
-    const catalogCohorts = catalog?.cohorts ?? {
-      __internal_teltonika: [],
-      __internal_lynx: [],
-      __internal_antares: [],
-      __internal_syrus: [],
+    if (!catalog || !hasSuccessfulCatalogRefresh) {
+      console.log(
+        `[cohort-service] refresh skipped reason=catalog_not_ready trigger=${reason}`,
+      )
+      return
     }
+    const catalogCohorts = catalog.cohorts
     console.log(
       `[cohort-service] refresh catalog_counts trigger=${reason} teltonika=${catalogCohorts.__internal_teltonika.length} lynx=${catalogCohorts.__internal_lynx.length} syrus=${catalogCohorts.__internal_syrus.length} antares=${catalogCohorts.__internal_antares.length}`,
     )
@@ -96,6 +97,11 @@ async function refreshSnapshot(reason: 'startup' | 'interval'): Promise<void> {
   } finally {
     refreshInFlight = false
   }
+}
+
+async function refreshCycle(reason: 'startup' | 'interval'): Promise<void> {
+  await refreshCatalog(reason)
+  await refreshSnapshot(reason)
 }
 
 async function refreshCatalog(reason: 'startup' | 'interval'): Promise<void> {
@@ -190,10 +196,8 @@ app.listen(env.port, async () => {
   console.log(`[cohort-service] listening on :${env.port}`)
   seedStartupSnapshot()
   seedStartupCatalog()
-  void refreshCatalog('startup')
-  void refreshSnapshot('startup')
+  void refreshCycle('startup')
   setInterval(() => {
-    void refreshCatalog('interval')
-    void refreshSnapshot('interval')
+    void refreshCycle('interval')
   }, env.refreshIntervalMs)
 })

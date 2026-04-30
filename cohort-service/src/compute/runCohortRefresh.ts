@@ -82,6 +82,7 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(chunk)}))
   |> keep(columns: ["vid"])
   |> unique(column: "vid")
+  |> group()
   |> count(column: "vid")
 `.trim()
     try {

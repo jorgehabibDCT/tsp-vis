@@ -26,6 +26,8 @@ export function getEnv() {
     influxEventLabelFields:
       process.env.INFLUX_EVENT_LABEL_FIELDS?.trim() || 'label_type',
     influxVidChunkSize: parseIntEnv('INFLUX_VID_CHUNK_SIZE', 200),
+    influxEntitiesVidChunkSize: parseIntEnv('INFLUX_ENTITIES_VID_CHUNK_SIZE', 50),
+    influxQueryTimeoutMs: parseIntEnv('INFLUX_QUERY_TIMEOUT_MS', 120_000),
   }
 }
 

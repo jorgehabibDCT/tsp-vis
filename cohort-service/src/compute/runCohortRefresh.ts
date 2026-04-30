@@ -16,6 +16,8 @@ type RefreshConfig = {
   influxRange: string
   influxEventLabelFields: string
   influxVidChunkSize: number
+  influxEntitiesVidChunkSize: number
+  influxQueryTimeoutMs: number
   refreshIntervalMs: number
 }
 
@@ -70,7 +72,7 @@ async function fetchEntitiesByVidSet(
   if (vids.length === 0) return 0
   let total = 0
   let successCount = 0
-  for (const chunk of chunkArray(vids, config.influxVidChunkSize)) {
+  for (const chunk of chunkArray(vids, config.influxEntitiesVidChunkSize)) {
     const flux = `
 from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> range(start: ${config.influxRange})
@@ -78,18 +80,12 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> filter(fn: (r) => exists r.vid)
   |> filter(fn: (r) => r.vid != "")
   |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(chunk)}))
-  |> keep(columns: ["_time", "vid"])
-  |> group(columns: ["vid"])
-  |> first(column: "_time")
-  |> group()
+  |> keep(columns: ["vid"])
+  |> unique(column: "vid")
   |> count(column: "vid")
 `.trim()
     try {
-      const rows = await getQueryApi({
-        url: config.influxUrl,
-        token: config.influxToken,
-        org: config.influxOrg,
-      }).collectRows(flux)
+      const rows = await queryApiForConfig(config).collectRows(flux)
       const row = rows[0] as Record<string, unknown> | undefined
       const v = row?.vid ?? row?._value
       const n = typeof v === 'number' ? v : Number(v ?? 0)
@@ -118,11 +114,7 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> group()
   |> count(column: "vid")
 `.trim()
-  const rows = await getQueryApi({
-    url: config.influxUrl,
-    token: config.influxToken,
-    org: config.influxOrg,
-  }).collectRows(flux)
+  const rows = await queryApiForConfig(config).collectRows(flux)
   const row = rows[0] as Record<string, unknown> | undefined
   const v = row?.vid ?? row?._value
   return typeof v === 'number' ? v : Number(v ?? 0)
@@ -156,11 +148,7 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> count(column: "vid")
 `.trim()
     try {
-      const rows = await getQueryApi({
-        url: config.influxUrl,
-        token: config.influxToken,
-        org: config.influxOrg,
-      }).collectRows(flux)
+      const rows = await queryApiForConfig(config).collectRows(flux)
       for (const row of rows as Array<Record<string, unknown>>) {
         const lbl = String(row.lbl ?? '')
         if (!lbl) continue
@@ -201,11 +189,7 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> group(columns: ["lbl"])
   |> count(column: "vid")
 `.trim()
-  const rows = await getQueryApi({
-    url: config.influxUrl,
-    token: config.influxToken,
-    org: config.influxOrg,
-  }).collectRows(flux)
+  const rows = await queryApiForConfig(config).collectRows(flux)
   const out: Record<string, number> = {}
   for (const row of rows as Array<Record<string, unknown>>) {
     const lbl = String(row.lbl ?? '')
@@ -244,11 +228,7 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> count(column: "vid")
 `.trim()
     try {
-      const rows = await getQueryApi({
-        url: config.influxUrl,
-        token: config.influxToken,
-        org: config.influxOrg,
-      }).collectRows(flux)
+      const rows = await queryApiForConfig(config).collectRows(flux)
       for (const row of rows as Array<Record<string, unknown>>) {
         const field = String(row._field ?? '')
         if (!field) continue
@@ -276,6 +256,15 @@ function chunkArray<T>(arr: T[], rawChunkSize: number): T[][] {
   return out
 }
 
+function queryApiForConfig(config: RefreshConfig) {
+  return getQueryApi({
+    url: config.influxUrl,
+    token: config.influxToken,
+    org: config.influxOrg,
+    timeoutMs: config.influxQueryTimeoutMs,
+  })
+}
+
 async function fetchRichnessByProvider(
   config: RefreshConfig,
   providerSlug: string,
@@ -297,11 +286,7 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> group(columns: ["_field"])
   |> count(column: "vid")
 `.trim()
-  const rows = await getQueryApi({
-    url: config.influxUrl,
-    token: config.influxToken,
-    org: config.influxOrg,
-  }).collectRows(flux)
+  const rows = await queryApiForConfig(config).collectRows(flux)
   const out: Record<string, number> = {}
   for (const row of rows as Array<Record<string, unknown>>) {
     const field = String(row._field ?? '')

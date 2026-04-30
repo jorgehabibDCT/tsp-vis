@@ -55,9 +55,7 @@ type ExternalCohortSnapshot = {
   errors?: string[]
 }
 
-const ACTIVE_EXTERNAL_INTERNAL_COHORT_SLUGS = new Set<string>([
-  TELTONIKA_INTERNAL_COHORT_SLUG,
-])
+const ACTIVE_EXTERNAL_INTERNAL_COHORT_SLUGS = new Set<string>([])
 
 function isStartupPlaceholderSnapshot(body: ExternalCohortSnapshot): boolean {
   const hasStartupInProgressError = (body.errors ?? []).includes('startup_refresh_in_progress')
@@ -248,6 +246,77 @@ function applyExternalCohortSnapshot(
     slugByTspIdForEventMerge,
     tspNameById,
   )
+}
+
+async function materializeTeltonikaInternalCohortFromProviderBaseline(params: {
+  payload: DashboardPayload
+  slugByTspId: Record<string, string | null>
+  entitiesQuerySucceeded: boolean
+  eventLabelsQuerySucceeded: boolean
+  entityCountByProvider: Record<string, number>
+  labelVidByProviderBase: Record<string, Record<string, number>>
+}): Promise<void> {
+  const {
+    payload,
+    slugByTspId,
+    entitiesQuerySucceeded,
+    eventLabelsQuerySucceeded,
+    entityCountByProvider,
+    labelVidByProviderBase,
+  } = params
+  ensureInternalHardwareColumns(payload)
+
+  for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+    slugByTspId[cohort.id] =
+      cohort.slug === TELTONIKA_INTERNAL_COHORT_SLUG ? TELTONIKA_INTERNAL_COHORT_SLUG : null
+  }
+
+  if (!entitiesQuerySucceeded) {
+    return
+  }
+
+  const teltonikaEntities = Math.max(0, Number(entityCountByProvider[TELTONIKA_PROVIDER_SLUG] ?? 0))
+  const entityMetric = payload.metrics.find((m) => m.id === 'metric-entities' && m.type === 'scalar')
+  if (entityMetric) {
+    const entityCells = entityMetric.values as Record<string, { kind: 'scalar'; value: number | null }>
+    for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+      entityCells[cohort.id] = {
+        kind: 'scalar',
+        value: cohort.slug === TELTONIKA_INTERNAL_COHORT_SLUG ? teltonikaEntities : null,
+      }
+    }
+  }
+
+  if (eventLabelsQuerySucceeded) {
+    const tspNameById = Object.fromEntries(payload.tsps.map((t) => [t.id, t.name]))
+    mergeEventLabelVehicleCoverageIntoPayload(
+      payload,
+      { [TELTONIKA_INTERNAL_COHORT_SLUG]: teltonikaEntities },
+      {
+        [TELTONIKA_INTERNAL_COHORT_SLUG]:
+          labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {},
+      },
+      { ...slugByTspId },
+      tspNameById,
+    )
+  }
+
+  try {
+    const teltonikaRichness = await fetchDistinctVehicleCountByRichnessFieldForProvider(
+      TELTONIKA_PROVIDER_SLUG,
+    )
+    mergeInternalHardwareRichnessCoverage(
+      payload,
+      { [TELTONIKA_INTERNAL_COHORT_SLUG]: teltonikaEntities },
+      { [TELTONIKA_INTERNAL_COHORT_SLUG]: teltonikaRichness },
+      new Set<string>([TELTONIKA_INTERNAL_COHORT_SLUG]),
+    )
+  } catch (e) {
+    console.warn(
+      `[tspComparison] Teltonika provider-native richness enrichment failed; continuing`,
+      e,
+    )
+  }
 }
 
 function mergeEntityCountsIntoPayload(
@@ -550,7 +619,20 @@ export async function buildTspComparisonDashboardMerged(
     )
   }
 
-  if (externalCohortServiceEnabled && externalSnapshot) {
+  await materializeTeltonikaInternalCohortFromProviderBaseline({
+    payload,
+    slugByTspId,
+    entitiesQuerySucceeded,
+    eventLabelsQuerySucceeded,
+    entityCountByProvider,
+    labelVidByProviderBase,
+  })
+
+  if (
+    externalCohortServiceEnabled &&
+    externalSnapshot &&
+    ACTIVE_EXTERNAL_INTERNAL_COHORT_SLUGS.size > 0
+  ) {
     const externalMergeStartedAt = Date.now()
     applyExternalCohortSnapshot(payload, externalSnapshot, slugByTspId)
     stage('external_snapshot_merge', externalMergeStartedAt)

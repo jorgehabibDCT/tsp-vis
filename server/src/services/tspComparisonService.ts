@@ -289,6 +289,13 @@ async function materializeTeltonikaInternalCohortFromProviderBaseline(params: {
 
   if (eventLabelsQuerySucceeded) {
     const tspNameById = Object.fromEntries(payload.tsps.map((t) => [t.id, t.name]))
+    const slugByTspIdForTeltonikaOnly: Record<string, string | null> = Object.fromEntries(
+      payload.tsps.map((t) => [t.id, null]),
+    )
+    for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+      slugByTspIdForTeltonikaOnly[cohort.id] =
+        cohort.slug === TELTONIKA_INTERNAL_COHORT_SLUG ? TELTONIKA_INTERNAL_COHORT_SLUG : null
+    }
     mergeEventLabelVehicleCoverageIntoPayload(
       payload,
       { [TELTONIKA_INTERNAL_COHORT_SLUG]: teltonikaEntities },
@@ -296,7 +303,7 @@ async function materializeTeltonikaInternalCohortFromProviderBaseline(params: {
         [TELTONIKA_INTERNAL_COHORT_SLUG]:
           labelVidByProviderBase[TELTONIKA_PROVIDER_SLUG] ?? {},
       },
-      { ...slugByTspId },
+      slugByTspIdForTeltonikaOnly,
       tspNameById,
     )
   }

@@ -25,6 +25,7 @@ export function getEnv() {
     influxRange: process.env.INFLUX_ENTITY_RANGE?.trim() || '-3d',
     influxEventLabelFields:
       process.env.INFLUX_EVENT_LABEL_FIELDS?.trim() || 'label_type',
+    influxVidChunkSize: parseIntEnv('INFLUX_VID_CHUNK_SIZE', 200),
   }
 }
 

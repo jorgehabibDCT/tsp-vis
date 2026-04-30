@@ -15,6 +15,7 @@ type RefreshConfig = {
   influxMeasurement: string
   influxRange: string
   influxEventLabelFields: string
+  influxVidChunkSize: number
   refreshIntervalMs: number
 }
 
@@ -64,29 +65,44 @@ async function fetchCohortMongoInfo(config: RefreshConfig): Promise<Record<Cohor
 async function fetchEntitiesByVidSet(
   config: RefreshConfig,
   vids: string[],
+  onChunkError?: (message: string) => void,
 ): Promise<number> {
   if (vids.length === 0) return 0
-  const flux = `
+  let total = 0
+  let successCount = 0
+  for (const chunk of chunkArray(vids, config.influxVidChunkSize)) {
+    const flux = `
 from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> range(start: ${config.influxRange})
   |> filter(fn: (r) => r["_measurement"] == "${escapeFluxString(config.influxMeasurement)}")
   |> filter(fn: (r) => exists r.vid)
   |> filter(fn: (r) => r.vid != "")
-  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(vids)}))
+  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(chunk)}))
   |> keep(columns: ["_time", "vid"])
   |> group(columns: ["vid"])
   |> first(column: "_time")
   |> group()
   |> count(column: "vid")
 `.trim()
-  const rows = await getQueryApi({
-    url: config.influxUrl,
-    token: config.influxToken,
-    org: config.influxOrg,
-  }).collectRows(flux)
-  const row = rows[0] as Record<string, unknown> | undefined
-  const v = row?.vid ?? row?._value
-  return typeof v === 'number' ? v : Number(v ?? 0)
+    try {
+      const rows = await getQueryApi({
+        url: config.influxUrl,
+        token: config.influxToken,
+        org: config.influxOrg,
+      }).collectRows(flux)
+      const row = rows[0] as Record<string, unknown> | undefined
+      const v = row?.vid ?? row?._value
+      const n = typeof v === 'number' ? v : Number(v ?? 0)
+      total += Number.isFinite(n) ? n : 0
+      successCount += 1
+    } catch (e) {
+      onChunkError?.(`entities chunk_failed size=${chunk.length} error=${String(e)}`)
+    }
+  }
+  if (successCount === 0) {
+    throw new Error('entities all chunks failed')
+  }
+  return total
 }
 
 async function fetchEntitiesByProvider(config: RefreshConfig, providerSlug: string): Promise<number> {
@@ -115,18 +131,22 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
 async function fetchEventLabelsByVidSet(
   config: RefreshConfig,
   vids: string[],
+  onChunkError?: (message: string) => void,
 ): Promise<Record<string, number>> {
   if (vids.length === 0) return {}
   const fields = config.influxEventLabelFields.split(',').map((s) => s.trim()).filter(Boolean)
   const fieldOrs = fields.map((f) => `r["_field"] == "${escapeFluxString(f)}"`).join(' or ')
-  const flux = `
+  const out: Record<string, number> = {}
+  let successCount = 0
+  for (const chunk of chunkArray(vids, config.influxVidChunkSize)) {
+    const flux = `
 from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> range(start: ${config.influxRange})
   |> filter(fn: (r) => r["_measurement"] == "${escapeFluxString(config.influxMeasurement)}")
   |> filter(fn: (r) => r["label"] == "label_count")
   |> filter(fn: (r) => ${fieldOrs})
   |> filter(fn: (r) => exists r.vid and r.vid != "")
-  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(vids)}))
+  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(chunk)}))
   |> map(fn: (r) => ({ r with lbl: string(v: r._value) }))
   |> filter(fn: (r) => r.lbl != "")
   |> keep(columns: ["_time", "vid", "lbl"])
@@ -135,18 +155,26 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> group(columns: ["lbl"])
   |> count(column: "vid")
 `.trim()
-  const rows = await getQueryApi({
-    url: config.influxUrl,
-    token: config.influxToken,
-    org: config.influxOrg,
-  }).collectRows(flux)
-  const out: Record<string, number> = {}
-  for (const row of rows as Array<Record<string, unknown>>) {
-    const lbl = String(row.lbl ?? '')
-    if (!lbl) continue
-    const n = Number(row.vid ?? row._value ?? 0)
-    if (!Number.isFinite(n)) continue
-    out[lbl] = n
+    try {
+      const rows = await getQueryApi({
+        url: config.influxUrl,
+        token: config.influxToken,
+        org: config.influxOrg,
+      }).collectRows(flux)
+      for (const row of rows as Array<Record<string, unknown>>) {
+        const lbl = String(row.lbl ?? '')
+        if (!lbl) continue
+        const n = Number(row.vid ?? row._value ?? 0)
+        if (!Number.isFinite(n)) continue
+        out[lbl] = (out[lbl] ?? 0) + n
+      }
+      successCount += 1
+    } catch (e) {
+      onChunkError?.(`eventLabels chunk_failed size=${chunk.length} error=${String(e)}`)
+    }
+  }
+  if (successCount === 0) {
+    throw new Error('eventLabels all chunks failed')
   }
   return out
 }
@@ -192,37 +220,58 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
 async function fetchRichnessByVidSet(
   config: RefreshConfig,
   vids: string[],
+  onChunkError?: (message: string) => void,
 ): Promise<Record<string, number>> {
   if (vids.length === 0) return {}
   const proxyFields = ['hdop', 'dev_dist', 'dev_idle']
   const fieldOrs = proxyFields
     .map((f) => `r["_field"] == "${escapeFluxString(f)}"`)
     .join(' or ')
-  const flux = `
+  const out: Record<string, number> = {}
+  let successCount = 0
+  for (const chunk of chunkArray(vids, config.influxVidChunkSize)) {
+    const flux = `
 from(bucket: "${escapeFluxString(config.influxBucket)}")
   |> range(start: ${config.influxRange})
   |> filter(fn: (r) => r["_measurement"] == "${escapeFluxString(config.influxMeasurement)}")
   |> filter(fn: (r) => ${fieldOrs})
   |> filter(fn: (r) => exists r.vid and r.vid != "")
-  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(vids)}))
+  |> filter(fn: (r) => contains(value: r.vid, set: ${fluxVidArray(chunk)}))
   |> keep(columns: ["_time", "_field", "vid"])
   |> group(columns: ["_field", "vid"])
   |> first(column: "_time")
   |> group(columns: ["_field"])
   |> count(column: "vid")
 `.trim()
-  const rows = await getQueryApi({
-    url: config.influxUrl,
-    token: config.influxToken,
-    org: config.influxOrg,
-  }).collectRows(flux)
-  const out: Record<string, number> = {}
-  for (const row of rows as Array<Record<string, unknown>>) {
-    const field = String(row._field ?? '')
-    if (!field) continue
-    const n = Number(row.vid ?? row._value ?? 0)
-    if (!Number.isFinite(n)) continue
-    out[field] = n
+    try {
+      const rows = await getQueryApi({
+        url: config.influxUrl,
+        token: config.influxToken,
+        org: config.influxOrg,
+      }).collectRows(flux)
+      for (const row of rows as Array<Record<string, unknown>>) {
+        const field = String(row._field ?? '')
+        if (!field) continue
+        const n = Number(row.vid ?? row._value ?? 0)
+        if (!Number.isFinite(n)) continue
+        out[field] = (out[field] ?? 0) + n
+      }
+      successCount += 1
+    } catch (e) {
+      onChunkError?.(`richness chunk_failed size=${chunk.length} error=${String(e)}`)
+    }
+  }
+  if (successCount === 0) {
+    throw new Error('richness all chunks failed')
+  }
+  return out
+}
+
+function chunkArray<T>(arr: T[], rawChunkSize: number): T[][] {
+  const chunkSize = Number.isFinite(rawChunkSize) && rawChunkSize > 0 ? Math.floor(rawChunkSize) : 200
+  const out: T[][] = []
+  for (let i = 0; i < arr.length; i += chunkSize) {
+    out.push(arr.slice(i, i + chunkSize))
   }
   return out
 }
@@ -303,26 +352,32 @@ export async function runCohortRefresh(config: RefreshConfig): Promise<CohortSna
         cohorts[c.slug] = { entities: 0, eventLabels: {}, richness: {}, status: 'empty' }
         continue
       }
+      let partialChunkFailure = false
+      const onChunkError = (message: string) => {
+        partialChunkFailure = true
+        errors.push(`cohort=${c.slug} ${message}`)
+      }
+
       const entities =
         c.slug === TELTONIKA_SLUG
           ? await fetchEntitiesByProvider(config, TELTONIKA_PROVIDER_SLUG)
-          : await fetchEntitiesByVidSet(config, cohortMongo.vids)
+          : await fetchEntitiesByVidSet(config, cohortMongo.vids, onChunkError)
 
       const eventLabels =
         c.slug === TELTONIKA_SLUG
           ? await fetchEventLabelsByProvider(config, TELTONIKA_PROVIDER_SLUG)
-          : await fetchEventLabelsByVidSet(config, cohortMongo.vids)
+          : await fetchEventLabelsByVidSet(config, cohortMongo.vids, onChunkError)
 
       const richness =
         c.slug === TELTONIKA_SLUG
           ? await fetchRichnessByProvider(config, TELTONIKA_PROVIDER_SLUG)
-          : await fetchRichnessByVidSet(config, cohortMongo.vids)
+          : await fetchRichnessByVidSet(config, cohortMongo.vids, onChunkError)
 
       cohorts[c.slug] = {
         entities,
         eventLabels,
         richness,
-        status: entities > 0 ? 'ok' : 'partial',
+        status: partialChunkFailure ? 'partial' : entities > 0 ? 'ok' : 'partial',
       }
     } catch (e) {
       errors.push(`cohort=${c.slug} refresh_failed=${String(e)}`)

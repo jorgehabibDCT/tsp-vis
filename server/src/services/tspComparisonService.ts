@@ -55,6 +55,10 @@ type ExternalCohortSnapshot = {
   errors?: string[]
 }
 
+const ACTIVE_EXTERNAL_INTERNAL_COHORT_SLUGS = new Set<string>([
+  TELTONIKA_INTERNAL_COHORT_SLUG,
+])
+
 function isStartupPlaceholderSnapshot(body: ExternalCohortSnapshot): boolean {
   const hasStartupInProgressError = (body.errors ?? []).includes('startup_refresh_in_progress')
   if (hasStartupInProgressError) {
@@ -157,7 +161,9 @@ function applyExternalCohortSnapshot(
 
   ensureInternalHardwareColumns(payload)
   for (const cohort of INTERNAL_HARDWARE_COHORTS) {
-    slugByTspId[cohort.id] = cohort.slug
+    slugByTspId[cohort.id] = ACTIVE_EXTERNAL_INTERNAL_COHORT_SLUGS.has(cohort.slug)
+      ? cohort.slug
+      : null
   }
 
   const entityMetric = payload.metrics.find(
@@ -193,6 +199,14 @@ function applyExternalCohortSnapshot(
   const tspNameById = Object.fromEntries(payload.tsps.map((t) => [t.id, t.name]))
 
   for (const cohort of INTERNAL_HARDWARE_COHORTS) {
+    if (!ACTIVE_EXTERNAL_INTERNAL_COHORT_SLUGS.has(cohort.slug)) {
+      entityCells[cohort.id] = { kind: 'scalar', value: null }
+      eventCells[cohort.id] = buildUnavailableExpandableCell(eventMetric.structure)
+      richnessCells[cohort.id] = buildUnavailableExpandableCell(richnessMetric.structure)
+      slugByTspIdForEventMerge[cohort.id] = null
+      continue
+    }
+
     const item = snapshot.cohorts[cohort.slug]
     if (!item) {
       entityCells[cohort.id] = { kind: 'scalar', value: null }

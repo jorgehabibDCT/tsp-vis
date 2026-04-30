@@ -1,13 +1,8 @@
-import type { Filter, Document } from 'mongodb'
 import { COHORT_DEFINITIONS, TELTONIKA_PROVIDER_SLUG, TELTONIKA_SLUG } from '../config/cohorts.js'
 import type { CohortSlug, CohortSnapshot, CohortSnapshotItem } from '../types.js'
-import { getMongoClient } from '../lib/mongo.js'
 import { escapeFluxString, fluxVidArray, getQueryApi } from '../lib/influx.js'
 
 type RefreshConfig = {
-  mongoUri: string
-  mongoDbName: string
-  mongoVehiclesCollection: string
   influxUrl: string
   influxToken: string
   influxOrg: string
@@ -27,38 +22,17 @@ type CohortMongoInfo = {
   canonicalVids: number
 }
 
-function normalizeVid(value: unknown): string | null {
-  if (value === null || value === undefined) return null
-  const s = String(value).trim()
-  return s.length > 0 ? s : null
-}
-
-function canonicalVidFromDoc(doc: { id?: unknown; id_str?: unknown }): string | null {
-  return normalizeVid(doc.id) ?? normalizeVid(doc.id_str)
-}
-
-async function fetchCohortMongoInfo(config: RefreshConfig): Promise<Record<CohortSlug, CohortMongoInfo>> {
-  const coll = getMongoClient(config.mongoUri)
-    .db(config.mongoDbName)
-    .collection(config.mongoVehiclesCollection)
-
+function buildCohortInfoFromCatalog(
+  catalogCohorts: Record<CohortSlug, string[]>,
+): Record<CohortSlug, CohortMongoInfo> {
   const out = {} as Record<CohortSlug, CohortMongoInfo>
   for (const c of COHORT_DEFINITIONS) {
-    const docs = (await coll
-      .find(c.mongoFilter as Filter<Document>, {
-        projection: { _id: 0, id: 1, id_str: 1 },
-      })
-      .toArray()) as Array<{ id?: unknown; id_str?: unknown }>
-
-    const vids = new Set<string>()
-    for (const doc of docs) {
-      const v = canonicalVidFromDoc(doc)
-      if (v) vids.add(v)
-    }
+    const vids = [...new Set((catalogCohorts[c.slug] ?? []).map((v) => String(v).trim()).filter(Boolean))]
     out[c.slug] = {
-      vids: [...vids],
-      docsMatched: docs.length,
-      canonicalVids: vids.size,
+      vids,
+      // Snapshot contract preserved: expose cohort membership counts in existing mongo block.
+      docsMatched: vids.length,
+      canonicalVids: vids.length,
     }
   }
   return out
@@ -299,10 +273,18 @@ from(bucket: "${escapeFluxString(config.influxBucket)}")
   return out
 }
 
-export async function runCohortRefresh(config: RefreshConfig): Promise<CohortSnapshot> {
+export async function runCohortRefresh(
+  config: RefreshConfig,
+  catalogCohorts: Record<CohortSlug, string[]>,
+): Promise<CohortSnapshot> {
   const startedAt = new Date().toISOString()
   const errors: string[] = []
-  const mongo = await fetchCohortMongoInfo(config)
+  const mongo = buildCohortInfoFromCatalog(catalogCohorts)
+  for (const c of COHORT_DEFINITIONS) {
+    console.log(
+      `[cohort-service] snapshot catalog_membership cohort=${c.slug} vids=${mongo[c.slug].canonicalVids}`,
+    )
+  }
 
   const cohorts: Record<CohortSlug, CohortSnapshotItem> = {
     __internal_teltonika: {

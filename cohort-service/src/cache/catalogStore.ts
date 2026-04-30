@@ -6,6 +6,10 @@ export function setCatalog(snapshot: HardwareCatalogSnapshot): void {
   latestCatalog = snapshot
 }
 
+export function getLatestCatalog(): HardwareCatalogSnapshot | null {
+  return latestCatalog
+}
+
 export function getCatalog(maxStaleMs: number): HardwareCatalogSnapshot | null {
   if (!latestCatalog) {
     return null

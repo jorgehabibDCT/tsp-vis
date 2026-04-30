@@ -1,7 +1,7 @@
 import express from 'express'
 import { getEnv, validateEnv } from './config/env.js'
 import { getSnapshot, setSnapshot } from './cache/snapshotStore.js'
-import { getCatalog, setCatalog } from './cache/catalogStore.js'
+import { getCatalog, getLatestCatalog, setCatalog } from './cache/catalogStore.js'
 import { runCohortRefresh } from './compute/runCohortRefresh.js'
 import { runCatalogRefresh } from './compute/runCatalogRefresh.js'
 import type { CohortSnapshot, HardwareCatalogSnapshot } from './types.js'
@@ -72,7 +72,17 @@ async function refreshSnapshot(reason: 'startup' | 'interval'): Promise<void> {
   const t0 = Date.now()
   try {
     console.log(`[cohort-service] refresh start trigger=${reason}`)
-    const snapshot = await runCohortRefresh(env)
+    const catalog = getLatestCatalog()
+    const catalogCohorts = catalog?.cohorts ?? {
+      __internal_teltonika: [],
+      __internal_lynx: [],
+      __internal_antares: [],
+      __internal_syrus: [],
+    }
+    console.log(
+      `[cohort-service] refresh catalog_counts trigger=${reason} teltonika=${catalogCohorts.__internal_teltonika.length} lynx=${catalogCohorts.__internal_lynx.length} syrus=${catalogCohorts.__internal_syrus.length} antares=${catalogCohorts.__internal_antares.length}`,
+    )
+    const snapshot = await runCohortRefresh(env, catalogCohorts)
     setSnapshot(snapshot)
     hasSuccessfulRefresh = true
     console.log(
@@ -180,10 +190,10 @@ app.listen(env.port, async () => {
   console.log(`[cohort-service] listening on :${env.port}`)
   seedStartupSnapshot()
   seedStartupCatalog()
-  void refreshSnapshot('startup')
   void refreshCatalog('startup')
+  void refreshSnapshot('startup')
   setInterval(() => {
-    void refreshSnapshot('interval')
     void refreshCatalog('interval')
+    void refreshSnapshot('interval')
   }, env.refreshIntervalMs)
 })
